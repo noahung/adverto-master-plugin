@@ -1,6 +1,6 @@
 # Adverto Master Plugin
 
-![Adverto Master Plugin Banner](https://via.placeholder.com/1200x300/4285f4/ffffff?text=Adverto+Master+Plugin)
+![Adverto Master Plugin Banner](assets/images/advertomedia-banner.png)
 
 A comprehensive AI-powered marketing toolkit that combines four powerful tools into one beautiful, cohesive WordPress plugin with Google Material Design inspired interface.
 
