@@ -13,6 +13,9 @@ $settings = get_option('adverto_side_tab_settings', array(
 ));
 
 $items = get_option('adverto_side_tab_items', array());
+
+// Debug: Check what's actually in the database
+error_log('Side Tab Items from DB: ' . print_r($items, true));
 ?>
 
 <div class="adverto-container">
@@ -43,11 +46,11 @@ $items = get_option('adverto_side_tab_items', array());
                 <form id="side-tab-settings-form">
                     <div class="adverto-form-grid">
                         <div class="adverto-form-group">
-                            <label class="adverto-checkbox">
+                            <label class="adverto-switch">
                                 <input type="checkbox" id="side-tab-enabled" <?php checked($settings['enabled'], 1); ?>>
-                                <span class="adverto-checkbox-mark"></span>
-                                <?php _e('Enable Side Tab', 'adverto-master'); ?>
+                                <span class="adverto-switch-slider"></span>
                             </label>
+                            <label for="side-tab-enabled" class="adverto-form-label"><?php _e('Enable Side Tab', 'adverto-master'); ?></label>
                             <small class="adverto-field-help"><?php _e('Show the side tab on your website', 'adverto-master'); ?></small>
                         </div>
                         
@@ -247,9 +250,19 @@ $items = get_option('adverto_side_tab_items', array());
             </div>
             
             <div class="adverto-form-group">
-                <label for="item-icon"><?php _e('Icon URL (Optional)', 'adverto-master'); ?></label>
-                <input type="url" id="item-icon" class="adverto-input" placeholder="<?php _e('https://example.com/icon.png', 'adverto-master'); ?>">
-                <small class="adverto-field-help"><?php _e('Recommended size: 24x24 pixels', 'adverto-master'); ?></small>
+                <label for="item-icon"><?php _e('Icon (Optional)', 'adverto-master'); ?></label>
+                <div class="adverto-media-upload">
+                    <input type="url" id="item-icon" class="adverto-input" placeholder="<?php _e('https://example.com/icon.png', 'adverto-master'); ?>" readonly>
+                    <button type="button" class="adverto-btn adverto-btn-secondary" id="select-icon-btn">
+                        <span class="material-icons">image</span>
+                        <?php _e('Select Icon', 'adverto-master'); ?>
+                    </button>
+                    <button type="button" class="adverto-btn adverto-btn-secondary" id="clear-icon-btn" style="display: none;">
+                        <span class="material-icons">clear</span>
+                        <?php _e('Clear', 'adverto-master'); ?>
+                    </button>
+                </div>
+                <small class="adverto-field-help"><?php _e('Recommended size: 24x24 pixels. SVG, PNG, or JPG format.', 'adverto-master'); ?></small>
             </div>
         </form>
         
@@ -271,10 +284,82 @@ jQuery(document).ready(function($) {
     let currentSettings = <?php echo json_encode($settings); ?>;
     let isEditing = false;
     
+    // Debug: Log initial data
+    console.log('Initial currentItems from PHP:', currentItems);
+    console.log('Initial currentSettings:', currentSettings);
+    
+    // If currentItems is empty but we have items in HTML, parse them
+    if (currentItems.length === 0 && $('.side-tab-item').length > 0) {
+        console.log('Parsing items from HTML...');
+        currentItems = [];
+        $('.side-tab-item').each(function() {
+            const $item = $(this);
+            const item = {
+                id: $item.data('id') || $item.attr('data-id'),
+                text: $item.find('.item-info strong').text(),
+                link: $item.find('.item-info small').text(),
+                target: '_self', // Default value
+                icon: $item.find('.item-icon').attr('src') || ''
+            };
+            currentItems.push(item);
+        });
+        console.log('Parsed currentItems from HTML:', currentItems);
+    }
+    
     // Initialize
     loadAnalytics();
     updatePreview();
     initializeSortable();
+    
+    // Initialize WordPress Media Uploader for Icon Selection
+    let mediaUploader;
+    
+    $('#select-icon-btn').on('click', function(e) {
+        e.preventDefault();
+        
+        // If the media frame already exists, reopen it
+        if (mediaUploader) {
+            mediaUploader.open();
+            return;
+        }
+        
+        // Create the media frame
+        mediaUploader = wp.media.frames.file_frame = wp.media({
+            title: '<?php _e('Select Icon', 'adverto-master'); ?>',
+            button: {
+                text: '<?php _e('Use this icon', 'adverto-master'); ?>'
+            },
+            multiple: false,
+            library: {
+                type: ['image']
+            }
+        });
+        
+        // When an image is selected, run a callback
+        mediaUploader.on('select', function() {
+            const attachment = mediaUploader.state().get('selection').first().toJSON();
+            $('#item-icon').val(attachment.url);
+            $('#clear-icon-btn').show();
+        });
+        
+        // Open the modal
+        mediaUploader.open();
+    });
+    
+    $('#clear-icon-btn').on('click', function(e) {
+        e.preventDefault();
+        $('#item-icon').val('');
+        $(this).hide();
+    });
+    
+    // Show/hide clear button based on icon value
+    $('#item-icon').on('input', function() {
+        if ($(this).val()) {
+            $('#clear-icon-btn').show();
+        } else {
+            $('#clear-icon-btn').hide();
+        }
+    });
     
     // Colour input synchronisation
     $('input[type="color"]').on('change', function() {
@@ -308,16 +393,50 @@ jQuery(document).ready(function($) {
     
     // Edit item
     $(document).on('click', '.edit-item-btn', function() {
-        const itemId = $(this).closest('.side-tab-item').data('id');
-        const item = currentItems.find(i => i.id === itemId);
+        const itemId = $(this).closest('.side-tab-item').data('id') || $(this).closest('.side-tab-item').attr('data-id');
+        console.log('Edit clicked - Item ID:', itemId);
+        console.log('Element:', $(this).closest('.side-tab-item')[0]);
+        console.log('Current Items:', currentItems);
+        
+        const item = currentItems.find(i => i.id == itemId); // Use == instead of === for type flexibility
+        console.log('Found item:', item);
+        
         if (item) {
             openItemModal(item);
+        } else {
+            alert('Item not found in currentItems array. ID: ' + itemId);
         }
     });
     
-    // Delete item
-    $(document).on('click', '.delete-item-btn', function() {
-        const itemId = $(this).closest('.side-tab-item').data('id');
+    // Delete item - try multiple selectors
+    $(document).on('click', '.delete-item-btn, button.delete-item-btn, .adverto-btn-danger', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        console.log('Delete button clicked');
+        console.log('This element:', this);
+        console.log('This jQuery:', $(this));
+        console.log('Closest side-tab-item:', $(this).closest('.side-tab-item'));
+        console.log('Parents:', $(this).parents());
+        
+        const $sideTabItem = $(this).closest('.side-tab-item');
+        if ($sideTabItem.length === 0) {
+            console.log('No .side-tab-item parent found');
+            alert('Could not find parent item container');
+            return;
+        }
+        
+        const itemId = $sideTabItem.data('id') || $sideTabItem.attr('data-id');
+        console.log('Delete clicked - Item ID:', itemId);
+        console.log('Type of itemId:', typeof itemId);
+        console.log('data-id attr:', $sideTabItem.attr('data-id'));
+        console.log('jQuery data:', $sideTabItem.data('id'));
+        
+        if (!itemId) {
+            alert('No item ID found');
+            return;
+        }
+        
         if (confirm('<?php _e('Are you sure you want to delete this item?', 'adverto-master'); ?>')) {
             deleteItem(itemId);
         }
@@ -452,11 +571,14 @@ jQuery(document).ready(function($) {
     }
     
     function deleteItem(itemId) {
+        console.log('deleteItem called with ID:', itemId);
+        
         $.post(ajaxurl, {
             action: 'adverto_delete_side_tab_item',
             nonce: '<?php echo wp_create_nonce('adverto_nonce'); ?>',
             item_id: itemId
         }, function(response) {
+            console.log('Delete response:', response);
             if (response.success) {
                 currentItems = currentItems.filter(i => i.id !== itemId);
                 refreshItemsList();
@@ -465,6 +587,9 @@ jQuery(document).ready(function($) {
             } else {
                 showNotification(response.data, 'error');
             }
+        }).fail(function(xhr, status, error) {
+            console.log('Delete failed:', xhr.responseText);
+            showNotification('Request failed: ' + error, 'error');
         });
     }
     

@@ -158,7 +158,7 @@ class Adverto_Admin {
      * Display Side Tab Manager page
      */
     public function display_side_tab_manager() {
-        include_once ADVERTO_MASTER_ADMIN_DIR . 'views/side-tab-manager.php';
+        include_once ADVERTO_MASTER_ADMIN_DIR . 'views/side-tab-manager-simple.php';
     }
 
     /**
@@ -182,8 +182,73 @@ class Adverto_Admin {
         register_setting('adverto_master_settings_group', 'adverto_master_settings');
         register_setting('adverto_alt_text_settings_group', 'adverto_alt_text_prompt');
         register_setting('adverto_seo_settings_group', 'adverto_seo_prompt');
-        register_setting('adverto_side_tab_settings_group', 'adverto_side_tab_items');
-        register_setting('adverto_side_tab_settings_group', 'adverto_side_tab_settings');
+        
+        // Register side tab settings with sanitization
+        register_setting(
+            'adverto_side_tab_settings_group',
+            'adverto_side_tab_settings',
+            array(
+                'sanitize_callback' => array($this, 'sanitize_side_tab_settings'),
+                'default' => array(
+                    'enabled' => 1,
+                    'position' => 'right',
+                    'background_color' => '#4285f4',
+                    'text_color' => '#ffffff',
+                    'hover_color' => '#3367d6'
+                )
+            )
+        );
+        
+        // Register side tab items setting
+        register_setting(
+            'adverto_side_tab_items_group',
+            'adverto_side_tab_items',
+            array(
+                'sanitize_callback' => array($this, 'sanitize_side_tab_items'),
+                'default' => array()
+            )
+        );
+    }
+
+    /**
+     * Sanitize side tab settings
+     */
+    public function sanitize_side_tab_settings($settings) {
+        if (!is_array($settings)) {
+            return array();
+        }
+
+        $sanitized = array();
+        $sanitized['enabled'] = isset($settings['enabled']) ? 1 : 0;
+        $sanitized['position'] = in_array($settings['position'] ?? 'right', array('left', 'right')) ? $settings['position'] : 'right';
+        $sanitized['background_color'] = sanitize_hex_color($settings['background_color'] ?? '#4285f4');
+        $sanitized['text_color'] = sanitize_hex_color($settings['text_color'] ?? '#ffffff');
+        $sanitized['hover_color'] = sanitize_hex_color($settings['hover_color'] ?? '#3367d6');
+
+        return $sanitized;
+    }
+
+    /**
+     * Sanitize side tab items
+     */
+    public function sanitize_side_tab_items($items) {
+        if (!is_array($items)) {
+            return array();
+        }
+
+        $sanitized = array();
+        foreach ($items as $item) {
+            if (!is_array($item)) continue;
+            
+            $sanitized[] = array(
+                'icon' => esc_url_raw($item['icon'] ?? ''),
+                'text' => sanitize_text_field($item['text'] ?? ''),
+                'link' => esc_url_raw($item['link'] ?? ''),
+                'target' => in_array($item['target'] ?? '_self', array('_self', '_blank')) ? $item['target'] : '_self'
+            );
+        }
+
+        return $sanitized;
     }
 
     /**

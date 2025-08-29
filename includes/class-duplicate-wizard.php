@@ -436,7 +436,7 @@ class Adverto_Duplicate_Wizard {
             'post_name'    => $new_slug,
             'post_content' => $new_content,
             'post_excerpt' => $new_excerpt,
-            'post_status'  => $source_page->post_status,
+            'post_status'  => 'draft', // Always create as draft for review
             'post_type'    => $source_page->post_type,
             'post_author'  => get_current_user_id(),
             'post_parent'  => $source_page->post_parent,

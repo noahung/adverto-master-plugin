@@ -21,6 +21,7 @@
         <!-- Tool Selection Tabs -->
         <div class="adverto-tabs" id="wizard-tabs">
             <button class="adverto-tab-btn active" data-tab="duplicate"><?php _e('Page Duplicator', 'adverto-master'); ?></button>
+            <button class="adverto-tab-btn" data-tab="multi-location"><?php _e('Multi-Page Location Duplicator', 'adverto-master'); ?></button>
             <button class="adverto-tab-btn" data-tab="scanner"><?php _e('Duplicate Scanner', 'adverto-master'); ?></button>
             <button class="adverto-tab-btn" data-tab="find-replace"><?php _e('Find & Replace', 'adverto-master'); ?></button>
         </div>
@@ -99,10 +100,15 @@
                             </label>
                         </div>
                         
+                        <div class="adverto-alert info">
+                            <span class="material-icons">info</span>
+                            <strong><?php _e('Draft Mode:', 'adverto-master'); ?></strong> <?php _e('All duplicated pages will be created as drafts, allowing you to review and edit them before publishing.', 'adverto-master'); ?>
+                        </div>
+                        
                         <div class="adverto-form-actions">
                             <button type="button" id="duplicate-and-replace-btn" class="adverto-btn adverto-btn-primary" disabled>
                                 <span class="material-icons">content_copy</span>
-                                <?php _e('Duplicate and Replace', 'adverto-master'); ?>
+                                <?php _e('Create Draft Pages', 'adverto-master'); ?>
                             </button>
                         </div>
                     </div>
@@ -140,23 +146,197 @@
                 <div class="adverto-card-header">
                     <h2>
                         <span class="material-icons">task_alt</span>
-                        <?php _e('Pages Created Successfully!', 'adverto-master'); ?>
+                        <?php _e('Draft Pages Created Successfully!', 'adverto-master'); ?>
                     </h2>
+                    <p><?php _e('Your duplicated pages have been created as drafts for you to review before publishing.', 'adverto-master'); ?></p>
                 </div>
                 
                 <div class="adverto-card-content">
                     <div class="adverto-success-message">
                         <span class="material-icons">check_circle</span>
                         <div>
-                            <h4><?php _e('Duplicate Pages Created!', 'adverto-master'); ?></h4>
+                            <h4><?php _e('Draft Pages Created Successfully!', 'adverto-master'); ?></h4>
                             <p id="duplicate-final-summary"></p>
+                            <div class="adverto-alert info">
+                                <span class="material-icons">info</span>
+                                <?php _e('All duplicated pages are created as <strong>drafts</strong> so you can review and edit them before publishing. This ensures quality control and prevents accidental publishing of unfinished content.', 'adverto-master'); ?>
+                            </div>
                             <div class="results-list" id="duplicate-results-list">
                                 <!-- Results will be populated here -->
                             </div>
                             <div class="result-actions">
-                                <button type="button" id="create-more-duplicates-btn" class="adverto-btn adverto-btn-primary">
+                                <button type="button" id="view-drafts-btn" class="adverto-btn adverto-btn-primary">
+                                    <span class="material-icons">drafts</span>
+                                    <?php _e('View All Draft Pages', 'adverto-master'); ?>
+                                </button>
+                                <button type="button" id="create-more-duplicates-btn" class="adverto-btn adverto-btn-secondary">
                                     <span class="material-icons">add</span>
                                     <?php _e('Create More Duplicates', 'adverto-master'); ?>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Multi-Page Location Duplicator Tab -->
+        <div class="adverto-tab-content" id="multi-location-tab" style="display: none;">
+            <div class="adverto-card">
+                <div class="adverto-card-header">
+                    <h2>
+                        <span class="material-icons">location_on</span>
+                        <?php _e('Multi-Page Location Duplicator', 'adverto-master'); ?>
+                    </h2>
+                    <p><?php _e('Select multiple pages and duplicate them all for a new location. Perfect for creating location-specific versions of service pages (e.g., iPhone Bristol, Android Birmingham → iPhone York, Android York).', 'adverto-master'); ?></p>
+                </div>
+                
+                <div class="adverto-card-content">
+                    <div class="multi-location-form">
+                        <!-- Page Selection Section -->
+                        <div class="adverto-form-section">
+                            <h3><?php _e('1. Select Pages to Duplicate', 'adverto-master'); ?></h3>
+                            <div class="adverto-form-group">
+                                <div class="page-selection-controls">
+                                    <button type="button" id="select-all-pages-btn" class="adverto-btn adverto-btn-secondary adverto-btn-small">
+                                        <span class="material-icons">select_all</span>
+                                        <?php _e('Select All', 'adverto-master'); ?>
+                                    </button>
+                                    <button type="button" id="clear-all-pages-btn" class="adverto-btn adverto-btn-secondary adverto-btn-small">
+                                        <span class="material-icons">clear</span>
+                                        <?php _e('Clear All', 'adverto-master'); ?>
+                                    </button>
+                                    <input type="text" id="page-search-filter" class="adverto-input" style="width: 300px;" placeholder="<?php _e('Search pages...', 'adverto-master'); ?>">
+                                </div>
+                                <div class="selected-pages-count">
+                                    <strong id="selected-pages-count">0</strong> <?php _e('pages selected', 'adverto-master'); ?>
+                                </div>
+                            </div>
+                            
+                            <div class="pages-list" id="multi-pages-list">
+                                <div class="adverto-loading" id="multi-pages-loading">
+                                    <div class="adverto-spinner"></div>
+                                    <p><?php _e('Loading pages...', 'adverto-master'); ?></p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Location and Find/Replace Section -->
+                        <div class="adverto-form-section">
+                            <h3><?php _e('2. Configure Location Replacement', 'adverto-master'); ?></h3>
+                            
+                            <div class="adverto-form-group">
+                                <label for="new-location"><?php _e('New Location Name', 'adverto-master'); ?></label>
+                                <input type="text" id="new-location" class="adverto-input" placeholder="<?php _e('e.g., York', 'adverto-master'); ?>">
+                                <small class="adverto-field-help"><?php _e('This will replace the old location names in all selected pages', 'adverto-master'); ?></small>
+                            </div>
+                        </div>
+
+                        <!-- Selected Pages Configuration -->
+                        <div class="adverto-form-section" id="selected-pages-config" style="display: none;">
+                            <h3><?php _e('3. Configure Each Page', 'adverto-master'); ?></h3>
+                            <p><?php _e('For each selected page, specify which word should be replaced with your new location:', 'adverto-master'); ?></p>
+                            <div id="page-config-list">
+                                <!-- Will be populated dynamically -->
+                            </div>
+                        </div>
+
+                        <!-- Options -->
+                        <div class="adverto-form-section">
+                            <h3><?php _e('4. Duplication Options', 'adverto-master'); ?></h3>
+                            <div class="adverto-checkbox-group">
+                                <label class="adverto-checkbox">
+                                    <input type="checkbox" id="multi-copy-yoast-seo" checked>
+                                    <span class="adverto-checkbox-mark"></span>
+                                    <?php _e('Copy Yoast SEO Title, Meta Description & Focus Keyword', 'adverto-master'); ?>
+                                </label>
+                                
+                                <label class="adverto-checkbox">
+                                    <input type="checkbox" id="multi-copy-featured-image" checked>
+                                    <span class="adverto-checkbox-mark"></span>
+                                    <?php _e('Copy Featured Images', 'adverto-master'); ?>
+                                </label>
+                                
+                                <label class="adverto-checkbox">
+                                    <input type="checkbox" id="multi-copy-custom-fields">
+                                    <span class="adverto-checkbox-mark"></span>
+                                    <?php _e('Copy All Custom Fields', 'adverto-master'); ?>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="adverto-alert info">
+                            <span class="material-icons">info</span>
+                            <strong><?php _e('Draft Mode:', 'adverto-master'); ?></strong> <?php _e('All duplicated pages will be created as drafts for review before publishing.', 'adverto-master'); ?>
+                        </div>
+                        
+                        <div class="adverto-form-actions">
+                            <button type="button" id="create-location-pages-btn" class="adverto-btn adverto-btn-primary" disabled>
+                                <span class="material-icons">add_location</span>
+                                <?php _e('Create Location Pages', 'adverto-master'); ?>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Progress Section -->
+            <div class="adverto-card" id="multi-location-progress-section" style="display: none;">
+                <div class="adverto-card-header">
+                    <h2>
+                        <span class="material-icons">hourglass_empty</span>
+                        <?php _e('Creating Location Pages...', 'adverto-master'); ?>
+                    </h2>
+                </div>
+                
+                <div class="adverto-card-content">
+                    <div class="generation-progress">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="multi-location-progress-fill"></div>
+                        </div>
+                        <div class="progress-text">
+                            <span id="multi-location-current-progress">0</span> / <span id="multi-location-total-progress">0</span> <?php _e('pages processed', 'adverto-master'); ?>
+                        </div>
+                    </div>
+                    
+                    <div id="multi-location-current-processing" class="current-processing">
+                        <span class="material-icons">autorenew</span>
+                        <span id="multi-location-current-page-title"><?php _e('Processing...', 'adverto-master'); ?></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="adverto-card" id="multi-location-results-section" style="display: none;">
+                <div class="adverto-card-header">
+                    <h2>
+                        <span class="material-icons">task_alt</span>
+                        <?php _e('Location Pages Created Successfully!', 'adverto-master'); ?>
+                    </h2>
+                    <p><?php _e('Your location-specific pages have been created as drafts for review.', 'adverto-master'); ?></p>
+                </div>
+                
+                <div class="adverto-card-content">
+                    <div class="adverto-success-message">
+                        <span class="material-icons">check_circle</span>
+                        <div>
+                            <h4><?php _e('Location Pages Created Successfully!', 'adverto-master'); ?></h4>
+                            <p id="multi-location-final-summary"></p>
+                            <div class="adverto-alert info">
+                                <span class="material-icons">info</span>
+                                <?php _e('All location pages are created as <strong>drafts</strong>. Review and edit them before publishing.', 'adverto-master'); ?>
+                            </div>
+                            <div class="results-list" id="multi-location-results-list">
+                                <!-- Results will be populated here -->
+                            </div>
+                            <div class="result-actions">
+                                <button type="button" id="view-location-drafts-btn" class="adverto-btn adverto-btn-primary">
+                                    <span class="material-icons">drafts</span>
+                                    <?php _e('View All Draft Pages', 'adverto-master'); ?>
+                                </button>
+                                <button type="button" id="create-more-location-pages-btn" class="adverto-btn adverto-btn-secondary">
+                                    <span class="material-icons">add</span>
+                                    <?php _e('Create More Location Pages', 'adverto-master'); ?>
                                 </button>
                             </div>
                         </div>
@@ -362,6 +542,335 @@ jQuery(document).ready(function($) {
         resetDuplicationForm();
     });
     
+    // View drafts handler
+    $('#view-drafts-btn').on('click', function() {
+        window.open('<?php echo admin_url('edit.php?post_status=draft&post_type=page'); ?>', '_blank');
+    });
+
+    // Multi-Location Duplicator functionality
+    let multiLocationAllPages = [];
+    let multiLocationSelectedPages = [];
+    let pageConfigs = {};
+
+    // Load pages when switching to multi-location tab
+    $('.adverto-tab-btn[data-tab="multi-location"]').on('click', function() {
+        if (multiLocationAllPages.length === 0) {
+            loadPagesForMultiLocation();
+        }
+    });
+
+    // Page selection controls for multi-location
+    $('#select-all-pages-btn').on('click', function() {
+        $('.multi-page-checkbox').prop('checked', true);
+        updateMultiLocationSelection();
+    });
+
+    $('#clear-all-pages-btn').on('click', function() {
+        $('.multi-page-checkbox').prop('checked', false);
+        updateMultiLocationSelection();
+    });
+
+    // Page search filter
+    $('#page-search-filter').on('input', function() {
+        const filterText = $(this).val().toLowerCase();
+        $('.multi-page-item').each(function() {
+            const pageTitle = $(this).find('.page-title').text().toLowerCase();
+            const pageUrl = $(this).find('.page-url').text().toLowerCase();
+            
+            if (pageTitle.includes(filterText) || pageUrl.includes(filterText)) {
+                $(this).show();
+            } else {
+                $(this).hide();
+            }
+        });
+    });
+
+    // New location input handler
+    $('#new-location').on('input', function() {
+        validateMultiLocationForm();
+    });
+
+    // Create location pages handler
+    $('#create-location-pages-btn').on('click', function() {
+        startMultiLocationDuplication();
+    });
+
+    // Results handlers for multi-location
+    $('#view-location-drafts-btn').on('click', function() {
+        window.open('<?php echo admin_url('edit.php?post_status=draft&post_type=page'); ?>', '_blank');
+    });
+
+    $('#create-more-location-pages-btn').on('click', function() {
+        resetMultiLocationForm();
+    });
+
+    function loadPagesForMultiLocation() {
+        $('#multi-pages-loading').show();
+        
+        $.post(ajaxurl, {
+            action: 'adverto_fetch_pages',
+            nonce: '<?php echo wp_create_nonce('adverto_nonce'); ?>'
+        }, function(response) {
+            if (response.success) {
+                multiLocationAllPages = response.data;
+                displayMultiLocationPages(multiLocationAllPages);
+            } else {
+                showNotification(response.data || 'Failed to load pages', 'error');
+            }
+        }).always(function() {
+            $('#multi-pages-loading').hide();
+        });
+    }
+
+    function displayMultiLocationPages(pages) {
+        const pagesList = $('#multi-pages-list');
+        pagesList.empty();
+        
+        if (pages.length === 0) {
+            pagesList.append('<div class="adverto-empty-state">No pages found</div>');
+            return;
+        }
+
+        pages.forEach(function(page) {
+            const pageItem = $(`
+                <label class="multi-page-item">
+                    <input type="checkbox" value="${page.id}" class="multi-page-checkbox">
+                    <span class="adverto-checkbox-mark"></span>
+                    <div class="page-info">
+                        <h4 class="page-title">${page.title}</h4>
+                        <a href="${page.permalink}" target="_blank" class="page-url">${page.permalink}</a>
+                    </div>
+                </label>
+            `);
+            
+            pageItem.find('.multi-page-checkbox').on('change', updateMultiLocationSelection);
+            pagesList.append(pageItem);
+        });
+    }
+
+    function updateMultiLocationSelection() {
+        multiLocationSelectedPages = $('.multi-page-checkbox:checked').map(function() {
+            return parseInt($(this).val());
+        }).get();
+        
+        $('#selected-pages-count').text(multiLocationSelectedPages.length);
+        
+        // Show/hide page configuration section
+        if (multiLocationSelectedPages.length > 0) {
+            $('#selected-pages-config').show();
+            generatePageConfigs();
+        } else {
+            $('#selected-pages-config').hide();
+        }
+        
+        validateMultiLocationForm();
+    }
+
+    function generatePageConfigs() {
+        const configList = $('#page-config-list');
+        configList.empty();
+        
+        multiLocationSelectedPages.forEach(function(pageId) {
+            const page = multiLocationAllPages.find(p => p.id === pageId);
+            if (!page) return;
+            
+            const configItem = $(`
+                <div class="page-config-item" data-page-id="${pageId}">
+                    <div class="page-config-header">
+                        <h4>${page.title}</h4>
+                        <small>${page.permalink}</small>
+                    </div>
+                    <div class="page-config-fields">
+                        <div class="adverto-form-group">
+                            <label for="find-word-${pageId}"><?php _e('Find Word in This Page', 'adverto-master'); ?></label>
+                            <input type="text" id="find-word-${pageId}" class="adverto-input page-find-input" 
+                                   placeholder="<?php _e('e.g., Bristol, Birmingham, Oxford', 'adverto-master'); ?>" 
+                                   data-page-id="${pageId}">
+                            <small class="adverto-field-help"><?php _e('This word will be replaced with your new location in this page', 'adverto-master'); ?></small>
+                        </div>
+                    </div>
+                </div>
+            `);
+            
+            configItem.find('.page-find-input').on('input', function() {
+                const pageId = $(this).data('page-id');
+                pageConfigs[pageId] = $(this).val();
+                validateMultiLocationForm();
+            });
+            
+            configList.append(configItem);
+        });
+    }
+
+    function validateMultiLocationForm() {
+        const hasSelectedPages = multiLocationSelectedPages.length > 0;
+        const hasNewLocation = $('#new-location').val().trim().length > 0;
+        const allPagesConfigured = multiLocationSelectedPages.every(pageId => {
+            return pageConfigs[pageId] && pageConfigs[pageId].trim().length > 0;
+        });
+        
+        const isValid = hasSelectedPages && hasNewLocation && allPagesConfigured;
+        $('#create-location-pages-btn').prop('disabled', !isValid);
+    }
+
+    function startMultiLocationDuplication() {
+        const newLocation = $('#new-location').val().trim();
+        const copyYoast = $('#multi-copy-yoast-seo').is(':checked');
+        const copyFeaturedImage = $('#multi-copy-featured-image').is(':checked');
+        const copyCustomFields = $('#multi-copy-custom-fields').is(':checked');
+        
+        // Show progress section
+        $('#multi-location-progress-section').slideDown();
+        $('#multi-location-total-progress').text(multiLocationSelectedPages.length);
+        
+        let results = [];
+        let currentIndex = 0;
+        
+        function processNextPage() {
+            if (currentIndex >= multiLocationSelectedPages.length) {
+                showMultiLocationResults(results);
+                return;
+            }
+            
+            const pageId = multiLocationSelectedPages[currentIndex];
+            const page = multiLocationAllPages.find(p => p.id === pageId);
+            const findWord = pageConfigs[pageId];
+            
+            // Update progress
+            $('#multi-location-current-progress').text(currentIndex + 1);
+            $('#multi-location-current-page-title').text(`Processing: ${page.title}`);
+            
+            const progressPercent = ((currentIndex + 1) / multiLocationSelectedPages.length) * 100;
+            $('#multi-location-progress-fill').css('width', progressPercent + '%');
+            
+            // Duplicate this page
+            $.post(ajaxurl, {
+                action: 'adverto_duplicate_page_with_replace',
+                nonce: '<?php echo wp_create_nonce('adverto_nonce'); ?>',
+                page_id: pageId,
+                find_word: findWord,
+                replace_word: newLocation,
+                copy_yoast_seo: copyYoast,
+                copy_featured_image: copyFeaturedImage,
+                copy_custom_fields: copyCustomFields
+            }, function(response) {
+                if (response.success) {
+                    results.push({
+                        success: true,
+                        page_id: response.data.new_page_id,
+                        original_page_title: page.title,
+                        new_page_title: response.data.new_page_title,
+                        new_page_url: response.data.new_page_url,
+                        original_word: findWord,
+                        new_word: newLocation
+                    });
+                } else {
+                    results.push({
+                        success: false,
+                        original_page_title: page.title,
+                        original_word: findWord,
+                        new_word: newLocation,
+                        error: response.data
+                    });
+                }
+                
+                currentIndex++;
+                setTimeout(processNextPage, 500);
+            }).fail(function() {
+                results.push({
+                    success: false,
+                    original_page_title: page.title,
+                    original_word: findWord,
+                    new_word: newLocation,
+                    error: 'Network error occurred'
+                });
+                
+                currentIndex++;
+                setTimeout(processNextPage, 500);
+            });
+        }
+        
+        processNextPage();
+    }
+
+    function showMultiLocationResults(results) {
+        $('#multi-location-progress-section').hide();
+        $('#multi-location-results-section').slideDown();
+        
+        const successful = results.filter(r => r.success);
+        const failed = results.filter(r => !r.success);
+        
+        let summary = `Successfully created ${successful.length} location page${successful.length !== 1 ? 's' : ''}`;
+        if (failed.length > 0) {
+            summary += ` with ${failed.length} error${failed.length !== 1 ? 's' : ''}`;
+        }
+        summary += '. Review and publish when ready.';
+        
+        $('#multi-location-final-summary').text(summary);
+        
+        // Show results list
+        const resultsList = $('#multi-location-results-list');
+        resultsList.empty();
+        
+        results.forEach(function(result) {
+            let resultHtml;
+            
+            if (result.success) {
+                resultHtml = `
+                    <div class="result-item success">
+                        <span class="material-icons">check_circle</span>
+                        <div class="result-info">
+                            <h4>${result.new_page_title}</h4>
+                            <p>From "${result.original_page_title}" - replaced "${result.original_word}" with "${result.new_word}"</p>
+                            <div class="result-status">
+                                <span class="status-badge draft">
+                                    <span class="material-icons">edit_note</span>
+                                    <?php _e('Draft', 'adverto-master'); ?>
+                                </span>
+                            </div>
+                            <div class="result-actions-inline">
+                                <a href="<?php echo admin_url('post.php?action=edit&post='); ?>${result.page_id}" target="_blank" class="adverto-btn adverto-btn-small">
+                                    <span class="material-icons">edit</span>
+                                    <?php _e('Edit & Review', 'adverto-master'); ?>
+                                </a>
+                                <a href="${result.new_page_url}" target="_blank" class="adverto-btn adverto-btn-small adverto-btn-secondary">
+                                    <span class="material-icons">preview</span>
+                                    <?php _e('Preview', 'adverto-master'); ?>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                resultHtml = `
+                    <div class="result-item error">
+                        <span class="material-icons">error</span>
+                        <div class="result-info">
+                            <h4>Failed: ${result.original_page_title}</h4>
+                            <p>Attempted to replace "${result.original_word}" with "${result.new_word}"</p>
+                            <p class="error-message">${result.error}</p>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            resultsList.append(resultHtml);
+        });
+    }
+
+    function resetMultiLocationForm() {
+        $('#multi-location-results-section, #multi-location-progress-section').hide();
+        $('#selected-pages-config').hide();
+        $('.multi-page-checkbox').prop('checked', false);
+        $('#new-location').val('');
+        $('#page-search-filter').val('');
+        pageConfigs = {};
+        multiLocationSelectedPages = [];
+        $('#selected-pages-count').text('0');
+        validateMultiLocationForm();
+        $('html, body').animate({scrollTop: 0}, 500);
+    }
+    
     function loadPagesForDuplication() {
         $.post(ajaxurl, {
             action: 'adverto_fetch_pages',
@@ -520,11 +1029,11 @@ jQuery(document).ready(function($) {
         const successful = results.filter(r => r.success);
         const failed = results.filter(r => !r.success);
         
-        let summary = `Successfully created ${successful.length} page${successful.length !== 1 ? 's' : ''}`;
+        let summary = `Successfully created ${successful.length} draft page${successful.length !== 1 ? 's' : ''}`;
         if (failed.length > 0) {
             summary += ` with ${failed.length} error${failed.length !== 1 ? 's' : ''}`;
         }
-        summary += '.';
+        summary += '. Review and publish when ready.';
         
         $('#duplicate-final-summary').text(summary);
         
@@ -542,8 +1051,22 @@ jQuery(document).ready(function($) {
                         <div class="result-info">
                             <h4>${result.new_page_title}</h4>
                             <p>Replaced "${result.original_word}" with "${result.new_word}"</p>
-                            <a href="${result.new_page_url}" target="_blank" class="view-page-link">View Page</a> | 
-                            <a href="<?php echo admin_url('post.php?action=edit&post='); ?>${result.page_id}" target="_blank">Edit Page</a>
+                            <div class="result-status">
+                                <span class="status-badge draft">
+                                    <span class="material-icons">edit_note</span>
+                                    <?php _e('Draft', 'adverto-master'); ?>
+                                </span>
+                            </div>
+                            <div class="result-actions-inline">
+                                <a href="<?php echo admin_url('post.php?action=edit&post='); ?>${result.page_id}" target="_blank" class="adverto-btn adverto-btn-small">
+                                    <span class="material-icons">edit</span>
+                                    <?php _e('Edit & Review', 'adverto-master'); ?>
+                                </a>
+                                <a href="${result.new_page_url}" target="_blank" class="adverto-btn adverto-btn-small adverto-btn-secondary">
+                                    <span class="material-icons">preview</span>
+                                    <?php _e('Preview', 'adverto-master'); ?>
+                                </a>
+                            </div>
                         </div>
                     </div>
                 `;

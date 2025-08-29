@@ -39,7 +39,7 @@ class Adverto_Side_Tab {
         }
 
         $settings = array(
-            'enabled' => isset($_POST['enabled']) ? 1 : 0,
+            'enabled' => !empty($_POST['enabled']) && $_POST['enabled'] !== 'false' ? 1 : 0,
             'position' => sanitize_text_field($_POST['position'] ?? 'right'),
             'background_color' => sanitize_hex_color($_POST['background_color'] ?? '#4285f4'),
             'text_color' => sanitize_hex_color($_POST['text_color'] ?? '#ffffff'),
@@ -243,6 +243,7 @@ class Adverto_Side_Tab {
      */
     public function init_public_hooks($loader) {
         $settings = get_option('adverto_side_tab_settings', array());
+        
         if (!empty($settings['enabled'])) {
             $loader->add_action('wp_footer', $this, 'render_side_tab');
         }
@@ -259,6 +260,11 @@ class Adverto_Side_Tab {
             'enabled' => 1,
             'position' => 'right'
         ));
+
+        // Check if side tab is enabled - return early if not
+        if (empty($settings['enabled'])) {
+            return;
+        }
 
         $items = get_option('adverto_side_tab_items', array());
         
