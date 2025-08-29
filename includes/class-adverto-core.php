@@ -68,6 +68,15 @@ class Adverto_Core {
          */
         require_once ADVERTO_MASTER_INCLUDES_DIR . 'class-adverto-public.php';
 
+        /**
+         * Load all tool classes
+         */
+        require_once ADVERTO_MASTER_INCLUDES_DIR . 'class-alt-text-generator.php';
+        require_once ADVERTO_MASTER_INCLUDES_DIR . 'class-seo-generator.php';
+        require_once ADVERTO_MASTER_INCLUDES_DIR . 'class-side-tab.php';
+        require_once ADVERTO_MASTER_INCLUDES_DIR . 'class-duplicate-wizard.php';
+        require_once ADVERTO_MASTER_INCLUDES_DIR . 'class-llm-generator.php';
+
         $this->loader = new Adverto_Loader();
     }
 
@@ -99,12 +108,14 @@ class Adverto_Core {
         $seo_generator = new Adverto_SEO_Generator();
         $side_tab = new Adverto_Side_Tab();
         $duplicate_wizard = new Adverto_Duplicate_Wizard();
+        $llm_generator = new Adverto_LLM_Generator($this->get_plugin_name(), $this->get_version());
 
         // Hook their admin actions
         $alt_text_generator->init_admin_hooks($this->loader);
         $seo_generator->init_admin_hooks($this->loader);
         $side_tab->init_admin_hooks($this->loader);
         $duplicate_wizard->init_admin_hooks($this->loader);
+        $llm_generator->init_admin_hooks($this->loader);
     }
 
     /**

@@ -91,7 +91,7 @@ $api_key = isset($settings['openai_api_key']) ? $settings['openai_api_key'] : ''
         </div>
 
         <!-- Tools Grid -->
-        <div class="adverto-grid adverto-grid-2">
+        <div class="adverto-grid adverto-grid-3">
             
             <!-- Alt Text Generator AI -->
             <div class="adverto-card">
@@ -165,6 +165,32 @@ $api_key = isset($settings['openai_api_key']) ? $settings['openai_api_key'] : ''
                 </div>
                 <div class="adverto-card-actions">
                     <a href="<?php echo admin_url('admin.php?page=adverto-side-tab'); ?>" class="adverto-btn adverto-btn-primary">
+                        <span class="material-icons">launch</span>
+                        <?php _e('Open Tool', 'adverto-master'); ?>
+                    </a>
+                </div>
+            </div>
+
+            <!-- LLM.txt Generator AI -->
+            <div class="adverto-card">
+                <div class="adverto-card-header">
+                    <h3 class="adverto-card-title">
+                        <span class="material-icons">smart_toy</span>
+                        <?php _e('LLM.txt Generator AI', 'adverto-master'); ?>
+                    </h3>
+                    <div class="adverto-card-subtitle">
+                        <?php _e('Generate AI-readable site summaries', 'adverto-master'); ?>
+                    </div>
+                </div>
+                <div class="adverto-card-content">
+                    <p><?php _e('Create LLM.txt files that help AI systems understand your website content, improving chatbot interactions and AI-powered search results.', 'adverto-master'); ?></p>
+                    <div class="adverto-progress" style="margin: 16px 0;">
+                        <div class="adverto-progress-bar" data-progress="96"></div>
+                    </div>
+                    <small class="adverto-text-secondary"><?php _e('96% AI comprehension', 'adverto-master'); ?></small>
+                </div>
+                <div class="adverto-card-actions">
+                    <a href="<?php echo admin_url('admin.php?page=adverto-llm-generator'); ?>" class="adverto-btn adverto-btn-primary">
                         <span class="material-icons">launch</span>
                         <?php _e('Open Tool', 'adverto-master'); ?>
                     </a>
