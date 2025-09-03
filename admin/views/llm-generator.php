@@ -1,6 +1,6 @@
 <?php
 /**
- * LLM.txt Generator Admin View
+ * LLMs.txt Generator Admin View
  * Beautiful, intelligent interface with British spellings
  */
 
@@ -9,7 +9,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-// Get LLM Generator instance
+// Get LLMs Generator instance
 $llm_generator = new Adverto_LLM_Generator('adverto-master', '1.0.0');
 
 // Handle form submissions
@@ -31,7 +31,7 @@ if (isset($_POST['generate_llm_txt']) && wp_verify_nonce($_POST['_wpnonce'], 'ad
         $error_message = $result->get_error_message();
         echo '<div class="notice notice-error"><p>Error: ' . esc_html($error_message) . '</p></div>';
     } else {
-        echo '<div class="notice notice-success"><p>LLM.txt file generated successfully!</p></div>';
+        echo '<div class="notice notice-success"><p>LLMs.txt file generated successfully!</p></div>';
     }
 }
 
@@ -56,13 +56,13 @@ $custom_post_types = get_post_types(array('public' => true, '_builtin' => false)
     <div class="adverto-header">
         <h1>
             <span class="material-icons">auto_awesome</span>
-            <?php _e('LLM.txt Generator', 'adverto-master'); ?>
+            <?php _e('LLMs.txt Generator', 'adverto-master'); ?>
             <span class="powered-by-adverto">Powered by Adverto Media</span>
         </h1>
         <div class="adverto-breadcrumb">
             <a href="<?php echo admin_url('admin.php?page=adverto-master'); ?>"><?php _e('Dashboard', 'adverto-master'); ?></a>
             <span> / </span>
-            <span><?php _e('LLM.txt Generator', 'adverto-master'); ?></span>
+            <span><?php _e('LLMs.txt Generator', 'adverto-master'); ?></span>
         </div>
     </div>
 
@@ -72,9 +72,9 @@ $custom_post_types = get_post_types(array('public' => true, '_builtin' => false)
             <div class="adverto-card-header">
                 <h2>
                     <span class="material-icons">analytics</span>
-                    <?php _e('LLM.txt Status Overview', 'adverto-master'); ?>
+                    <?php _e('LLMs.txt Status Overview', 'adverto-master'); ?>
                 </h2>
-                <p><?php _e('Current status of your site\'s LLM.txt file for AI and language model integration', 'adverto-master'); ?></p>
+                <p><?php _e('Current status of your site\'s LLMs.txt file for AI and language model integration', 'adverto-master'); ?></p>
             </div>
             
             <div class="adverto-card-content">
@@ -85,7 +85,7 @@ $custom_post_types = get_post_types(array('public' => true, '_builtin' => false)
                         </div>
                         <div class="status-content">
                             <h3><?php _e('File Status', 'adverto-master'); ?></h3>
-                            <p><?php echo $stats['exists'] ? __('LLM.txt Generated', 'adverto-master') : __('No LLM.txt File', 'adverto-master'); ?></p>
+                            <p><?php echo $stats['exists'] ? __('LLMs.txt Generated', 'adverto-master') : __('No LLMs.txt File', 'adverto-master'); ?></p>
                         </div>
                     </div>
                     
@@ -129,7 +129,7 @@ $custom_post_types = get_post_types(array('public' => true, '_builtin' => false)
                 <div class="llm-actions">
                     <a href="<?php echo $stats['endpoint_url']; ?>" target="_blank" class="adverto-btn adverto-btn-outline">
                         <span class="material-icons">open_in_new</span>
-                        <span class="btn-text"><?php _e('View LLM.txt', 'adverto-master'); ?></span>
+                        <span class="btn-text"><?php _e('View LLMs.txt', 'adverto-master'); ?></span>
                     </a>
                     <button type="button" id="download-llm-txt" class="adverto-btn adverto-btn-secondary">
                         <span class="material-icons">download</span>
@@ -147,7 +147,7 @@ $custom_post_types = get_post_types(array('public' => true, '_builtin' => false)
                     <span class="material-icons">insights</span>
                     <?php _e('Content Analysis', 'adverto-master'); ?>
                 </h2>
-                <p><?php _e('Overview of your website content available for LLM.txt generation', 'adverto-master'); ?></p>
+                <p><?php _e('Overview of your website content available for LLMs.txt generation', 'adverto-master'); ?></p>
             </div>
             
             <div class="adverto-card-content">
@@ -223,6 +223,71 @@ $custom_post_types = get_post_types(array('public' => true, '_builtin' => false)
                         </div>
                     </div>
                     <?php endif; ?>
+                    
+                    <!-- New Comprehensive Site Discovery Option -->
+                    <div class="content-type-card featured">
+                        <div class="content-icon">
+                            <span class="material-icons">travel_explore</span>
+                        </div>
+                        <div class="content-info">
+                            <h4><?php _e('Comprehensive Site Discovery', 'adverto-master'); ?></h4>
+                            <p class="content-count"><?php _e('ALL', 'adverto-master'); ?></p>
+                            <small><?php _e('Discovers ALL pages via sitemaps, navigation & crawling', 'adverto-master'); ?></small>
+                        </div>
+                        <div class="content-toggle">
+                            <label class="adverto-switch">
+                                <input type="checkbox" id="discover_all_pages" checked>
+                                <span class="adverto-switch-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Advanced Discovery Options -->
+        <div class="adverto-card" id="advanced-discovery-options" style="display: block;">
+            <div class="adverto-card-header">
+                <h2>
+                    <span class="material-icons">settings</span>
+                    <?php _e('Advanced Discovery Options', 'adverto-master'); ?>
+                </h2>
+                <p><?php _e('Fine-tune the comprehensive site discovery process', 'adverto-master'); ?></p>
+            </div>
+            
+            <div class="adverto-card-content">
+                <div class="discovery-options-grid">
+                    <div class="option-group">
+                        <label for="max_pages_to_crawl"><?php _e('Maximum Pages to Crawl', 'adverto-master'); ?></label>
+                        <select id="max_pages_to_crawl" name="max_pages_to_crawl">
+                            <option value="50"><?php _e('50 pages (Fast)', 'adverto-master'); ?></option>
+                            <option value="100" selected><?php _e('100 pages (Recommended)', 'adverto-master'); ?></option>
+                            <option value="200"><?php _e('200 pages (Comprehensive)', 'adverto-master'); ?></option>
+                            <option value="500"><?php _e('500 pages (Maximum)', 'adverto-master'); ?></option>
+                        </select>
+                        <small class="help-text"><?php _e('Limits the total number of pages to prevent timeouts', 'adverto-master'); ?></small>
+                    </div>
+                    
+                    <div class="option-group">
+                        <label for="max_crawl_depth"><?php _e('Crawling Depth', 'adverto-master'); ?></label>
+                        <select id="max_crawl_depth" name="max_crawl_depth">
+                            <option value="1"><?php _e('Level 1 (Fast)', 'adverto-master'); ?></option>
+                            <option value="2" selected><?php _e('Level 2 (Recommended)', 'adverto-master'); ?></option>
+                            <option value="3"><?php _e('Level 3 (Deep)', 'adverto-master'); ?></option>
+                        </select>
+                        <small class="help-text"><?php _e('How many levels deep to follow links', 'adverto-master'); ?></small>
+                    </div>
+                </div>
+                
+                <div class="discovery-methods">
+                    <h4><?php _e('Discovery Methods Used:', 'adverto-master'); ?></h4>
+                    <ul class="discovery-list">
+                        <li><span class="material-icons">map</span> <?php _e('XML Sitemaps (sitemap.xml)', 'adverto-master'); ?></li>
+                        <li><span class="material-icons">menu</span> <?php _e('Navigation Menus', 'adverto-master'); ?></li>
+                        <li><span class="material-icons">link</span> <?php _e('Internal Link Following', 'adverto-master'); ?></li>
+                        <li><span class="material-icons">storage</span> <?php _e('WordPress Database', 'adverto-master'); ?></li>
+                        <li><span class="material-icons">search</span> <?php _e('Recursive Link Discovery', 'adverto-master'); ?></li>
+                    </ul>
                 </div>
             </div>
         </div>
@@ -234,7 +299,7 @@ $custom_post_types = get_post_types(array('public' => true, '_builtin' => false)
                     <span class="material-icons">tune</span>
                     <?php _e('Generation Settings', 'adverto-master'); ?>
                 </h2>
-                <p><?php _e('Configure how your LLM.txt file is generated with AI-powered content analysis', 'adverto-master'); ?></p>
+                <p><?php _e('Configure how your LLMs.txt file is generated with AI-powered content analysis', 'adverto-master'); ?></p>
             </div>
             
             <div class="adverto-card-content">
@@ -339,7 +404,7 @@ $custom_post_types = get_post_types(array('public' => true, '_builtin' => false)
                             </button>
                             <button type="submit" name="generate_llm_txt" id="generate-btn" class="adverto-btn adverto-btn-primary adverto-btn-large">
                                 <span class="material-icons">smart_toy</span>
-                                <span class="btn-text"><?php _e('Generate LLM.txt File', 'adverto-master'); ?></span>
+                                <span class="btn-text"><?php _e('Generate LLMs.txt File', 'adverto-master'); ?></span>
                             </button>
                         </div>
                     </div>
@@ -355,14 +420,14 @@ $custom_post_types = get_post_types(array('public' => true, '_builtin' => false)
                     <span class="material-icons">settings</span>
                     <?php _e('Advanced Settings', 'adverto-master'); ?>
                 </h2>
-                <p><?php _e('Configure automatic updates and advanced options for your LLM.txt file', 'adverto-master'); ?></p>
+                <p><?php _e('Configure automatic updates and advanced options for your LLMs.txt file', 'adverto-master'); ?></p>
             </div>
             
             <div class="adverto-card-content">
                 <div class="advanced-settings-grid">
                     <div class="setting-group">
                         <h4><?php _e('Automatic Updates', 'adverto-master'); ?></h4>
-                        <p><?php _e('Schedule automatic regeneration of your LLM.txt file', 'adverto-master'); ?></p>
+                        <p><?php _e('Schedule automatic regeneration of your LLMs.txt file', 'adverto-master'); ?></p>
                         
                         <label class="adverto-switch">
                             <input type="checkbox" id="auto_update_enabled">
@@ -381,7 +446,7 @@ $custom_post_types = get_post_types(array('public' => true, '_builtin' => false)
                     
                     <div class="setting-group">
                         <h4><?php _e('Public Access', 'adverto-master'); ?></h4>
-                        <p><?php _e('Make your LLM.txt file publicly accessible at /llm.txt', 'adverto-master'); ?></p>
+                        <p><?php _e('Make your LLMs.txt file publicly accessible at /llms.txt', 'adverto-master'); ?></p>
                         
                         <label class="adverto-switch">
                             <input type="checkbox" id="public_access" checked>
@@ -390,7 +455,7 @@ $custom_post_types = get_post_types(array('public' => true, '_builtin' => false)
                         <span class="switch-label"><?php _e('Enable public access', 'adverto-master'); ?></span>
                         
                         <div class="public-url">
-                            <code><?php echo home_url('llm.txt'); ?></code>
+                            <code><?php echo home_url('llms.txt'); ?></code>
                             <button type="button" class="copy-url-btn" title="<?php _e('Copy URL', 'adverto-master'); ?>">
                                 <span class="material-icons">content_copy</span>
                             </button>
@@ -405,15 +470,15 @@ $custom_post_types = get_post_types(array('public' => true, '_builtin' => false)
             <div class="adverto-card-header">
                 <h2>
                     <span class="material-icons">help</span>
-                    <?php _e('About LLM.txt Files', 'adverto-master'); ?>
+                    <?php _e('About LLMs.txt Files', 'adverto-master'); ?>
                 </h2>
             </div>
             
             <div class="adverto-card-content">
                 <div class="info-sections">
                     <div class="info-section">
-                        <h4><?php _e('What is LLM.txt?', 'adverto-master'); ?></h4>
-                        <p><?php _e('LLM.txt is a standardised file format that provides Large Language Models and AI systems with structured, easily digestible information about your website\'s content. It\'s similar to robots.txt but designed for AI consumption rather than web crawlers.', 'adverto-master'); ?></p>
+                        <h4><?php _e('What is LLMs.txt?', 'adverto-master'); ?></h4>
+                        <p><?php _e('LLMs.txt is a standardised file format that provides Large Language Models and AI systems with structured, easily digestible information about your website\'s content. It\'s similar to robots.txt but designed for AI consumption rather than web crawlers.', 'adverto-master'); ?></p>
                     </div>
                     
                     <div class="info-section">
@@ -428,7 +493,7 @@ $custom_post_types = get_post_types(array('public' => true, '_builtin' => false)
                     
                     <div class="info-section">
                         <h4><?php _e('Privacy & Security', 'adverto-master'); ?></h4>
-                        <p><?php _e('Only published content is included in your LLM.txt file. Private pages, drafts, and password-protected content are automatically excluded. You maintain full control over what information is shared.', 'adverto-master'); ?></p>
+                        <p><?php _e('Only published content is included in your LLMs.txt file. Private pages, drafts, and password-protected content are automatically excluded. You maintain full control over what information is shared.', 'adverto-master'); ?></p>
                     </div>
                 </div>
             </div>
@@ -445,7 +510,7 @@ $custom_post_types = get_post_types(array('public' => true, '_builtin' => false)
                 <div class="processing-icon">
                     <span class="material-icons spinning">smart_toy</span>
                 </div>
-                <h3><?php _e('Generating LLM.txt File', 'adverto-master'); ?></h3>
+                <h3><?php _e('Generating LLMs.txt File', 'adverto-master'); ?></h3>
                 <p><?php _e('Please wait while we process your content with AI...', 'adverto-master'); ?></p>
             </div>
             
@@ -490,7 +555,7 @@ $custom_post_types = get_post_types(array('public' => true, '_builtin' => false)
     'use strict';
     
     $(document).ready(function() {
-        console.log('LLM Generator JavaScript loaded');
+        console.log('LLMs Generator JavaScript loaded');
         
         // Update cost estimate when options change
         function updateCostEstimate() {
@@ -595,7 +660,7 @@ $custom_post_types = get_post_types(array('public' => true, '_builtin' => false)
             });
         });
         
-        // Download LLM.txt
+        // Download LLMs.txt
         $('#download-llm-txt').on('click', function() {
             console.log('Download button clicked');
             
@@ -623,7 +688,7 @@ $custom_post_types = get_post_types(array('public' => true, '_builtin' => false)
             form.remove();
         });
         
-        // View LLM.txt
+        // View LLMs.txt
         $('#view-llm-txt').on('click', function() {
             console.log('View button clicked');
             
@@ -750,6 +815,9 @@ $custom_post_types = get_post_types(array('public' => true, '_builtin' => false)
                 include_posts: $('#include_posts').is(':checked') ? 1 : 0,
                 include_products: $('#include_products').is(':checked') ? 1 : 0,
                 include_custom_post_types: $('#include_custom_post_types').is(':checked') ? 1 : 0,
+                discover_all_pages: $('#discover_all_pages').is(':checked') ? 1 : 0,
+                max_pages_to_crawl: $('#max_pages_to_crawl').val() || 100,
+                max_crawl_depth: $('#max_crawl_depth').val() || 2,
                 processing_type: $('input[name="processing_type"]:checked').val() || 'basic',
                 max_posts: $('#max_posts').val() || -1
             };
@@ -775,7 +843,7 @@ $custom_post_types = get_post_types(array('public' => true, '_builtin' => false)
                     setTimeout(() => {
                         hideModal();
                         if (response.success) {
-                            showSuccessMessage('<?php _e('LLM.txt file generated successfully!', 'adverto-master'); ?>');
+                            showSuccessMessage('<?php _e('LLMs.txt file generated successfully!', 'adverto-master'); ?>');
                             location.reload();
                         } else {
                             showErrorMessage('<?php _e('Error:', 'adverto-master'); ?> ' + (response.data || 'Unknown error'));
@@ -874,7 +942,7 @@ $custom_post_types = get_post_types(array('public' => true, '_builtin' => false)
                     const statusTexts = {
                         'scan': '<?php _e('Crawling live pages...', 'adverto-master'); ?>',
                         'ai': getAIProcessingText(processingType),
-                        'generate': '<?php _e('Generating LLM.txt structure...', 'adverto-master'); ?>',
+                        'generate': '<?php _e('Generating LLMs.txt structure...', 'adverto-master'); ?>',
                         'save': '<?php _e('Finalising & publishing...', 'adverto-master'); ?>'
                     };
                     

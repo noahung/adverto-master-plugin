@@ -74,7 +74,7 @@ class Adverto_LLM_Generator {
     }
 
     /**
-     * Scan WordPress content for LLM.txt generation with live web crawling
+     * Scan WordPress content for LLM.txt generation with comprehensive site crawling
      */
     public function scan_wordpress_content($options = array()) {
         $defaults = array(
@@ -84,96 +84,136 @@ class Adverto_LLM_Generator {
             'include_custom_post_types' => false,
             'max_posts' => -1,
             'exclude_ids' => array(),
-            'processing_type' => 'basic'
+            'processing_type' => 'basic',
+            'discover_all_pages' => true,  // New option for comprehensive discovery
+            'max_crawl_depth' => 2,        // How deep to crawl
+            'max_pages_to_crawl' => 100,   // Limit for safety
+            'include_external_links' => false // Stay within the same domain
         );
         
         $options = wp_parse_args($options, $defaults);
         
-        $post_types = array();
-        if ($options['include_pages']) $post_types[] = 'page';
-        if ($options['include_posts']) $post_types[] = 'post';
-        if ($options['include_products'] && post_type_exists('product')) $post_types[] = 'product';
+        // Comprehensive page discovery
+        if ($options['discover_all_pages']) {
+            error_log('LLM Generator: Using comprehensive site discovery');
+            $all_urls = $this->discover_all_site_pages($options);
+            return $this->crawl_discovered_urls($all_urls, $options);
+        } else {
+            // Fallback to WordPress-only content
+            error_log('LLM Generator: Using WordPress-only content discovery');
+            return $this->get_wordpress_content_only($options);
+        }
+    }
+
+    /**
+     * Discover all pages on the site using multiple techniques
+     */
+    private function discover_all_site_pages($options) {
+        error_log('LLM Generator: Starting comprehensive site discovery');
         
-        if ($options['include_custom_post_types']) {
-            $custom_post_types = get_post_types(array('public' => true, '_builtin' => false), 'names');
-            $post_types = array_merge($post_types, $custom_post_types);
+        $discovered_urls = array();
+        $base_url = home_url();
+        $site_domain = parse_url($base_url, PHP_URL_HOST);
+        
+        // Method 1: WordPress sitemap discovery
+        error_log('LLM Generator: Checking sitemaps...');
+        $sitemap_urls = $this->discover_from_sitemap($base_url);
+        $discovered_urls = array_merge($discovered_urls, $sitemap_urls);
+        error_log('LLM Generator: Found ' . count($sitemap_urls) . ' URLs from sitemaps');
+        
+        // Method 2: Crawl navigation menus and internal links
+        error_log('LLM Generator: Crawling navigation and homepage...');
+        $navigation_urls = $this->discover_from_navigation($base_url, $site_domain);
+        $discovered_urls = array_merge($discovered_urls, $navigation_urls);
+        error_log('LLM Generator: Found ' . count($navigation_urls) . ' URLs from navigation');
+        
+        // Method 3: WordPress database pages
+        error_log('LLM Generator: Getting WordPress pages...');
+        $wp_urls = $this->get_wordpress_page_urls($options);
+        $discovered_urls = array_merge($discovered_urls, $wp_urls);
+        error_log('LLM Generator: Found ' . count($wp_urls) . ' URLs from WordPress');
+        
+        // Method 4: Recursive link discovery (limited depth)
+        if ($options['max_crawl_depth'] > 1 && count($discovered_urls) < 50) {
+            error_log('LLM Generator: Performing recursive link discovery...');
+            $recursive_urls = $this->discover_recursive_links($discovered_urls, $site_domain, $options['max_crawl_depth']);
+            $discovered_urls = array_merge($discovered_urls, $recursive_urls);
+            error_log('LLM Generator: Found ' . count($recursive_urls) . ' additional URLs from recursive crawling');
         }
         
-        $args = array(
-            'post_type' => $post_types,
-            'post_status' => 'publish',
-            'numberposts' => $options['max_posts'],
-            'orderby' => 'menu_order',
-            'order' => 'ASC',
-            'meta_query' => array(
-                array(
-                    'key' => '_adverto_exclude_from_llm',
-                    'compare' => 'NOT EXISTS'
-                )
-            )
-        );
+        // Clean and deduplicate URLs
+        $discovered_urls = $this->clean_and_filter_urls($discovered_urls, $site_domain, $options);
         
-        if (!empty($options['exclude_ids'])) {
-            $args['post__not_in'] = $options['exclude_ids'];
+        // Limit for safety and performance
+        if (count($discovered_urls) > $options['max_pages_to_crawl']) {
+            $discovered_urls = array_slice($discovered_urls, 0, $options['max_pages_to_crawl']);
+            error_log('LLM Generator: Limited to ' . $options['max_pages_to_crawl'] . ' URLs for performance');
         }
         
-        $posts = get_posts($args);
-        
+        error_log('LLM Generator: Final discovered URLs count: ' . count($discovered_urls));
+        return array_unique($discovered_urls);
+    }
+
+    /**
+     * Crawl all discovered URLs
+     */
+    private function crawl_discovered_urls($urls, $options) {
         $content_data = array();
-        $total_posts = count($posts);
+        $total_urls = count($urls);
         $processed = 0;
+        
+        error_log('LLM Generator: Starting to crawl ' . $total_urls . ' discovered URLs');
         
         // Process in batches to prevent timeouts
         $batch_size = $this->get_batch_size($options['processing_type']);
-        $batches = array_chunk($posts, $batch_size);
+        $batches = array_chunk($urls, $batch_size);
         
         foreach ($batches as $batch_index => $batch) {
-            error_log("LLM Generator: Processing batch " . ($batch_index + 1) . " of " . count($batches));
+            error_log("LLM Generator: Processing URL batch " . ($batch_index + 1) . " of " . count($batches));
             
-            foreach ($batch as $post) {
-                $url = get_permalink($post->ID);
-                
+            foreach ($batch as $url) {
                 // Check if we need to skip due to time constraints
-                if ($this->should_skip_due_to_time($processed, $total_posts, $options['processing_type'])) {
-                    error_log("LLM Generator: Skipping remaining posts due to time constraints");
+                if ($this->should_skip_due_to_time($processed, $total_urls, $options['processing_type'])) {
+                    error_log("LLM Generator: Skipping remaining URLs due to time constraints");
                     break 2; // Break out of both loops
                 }
                 
-                // Crawl the live page content instead of using WordPress database
-                error_log("LLM Generator: Crawling live page: " . $url);
+                // Crawl the live page content
+                error_log("LLM Generator: Crawling: " . $url);
                 $live_content = $this->crawl_page_content($url, $options['processing_type']);
                 
-                if (!empty($live_content['content'])) {
+                if (!empty($live_content['content']) && strlen($live_content['content']) > 100) {
+                    // Extract title from content or URL
+                    $title = $this->extract_page_title($live_content, $url);
+                    
                     $content_data[] = array(
-                        'id' => $post->ID,
-                        'title' => $post->post_title,
+                        'id' => 'crawled_' . md5($url),
+                        'title' => $title,
                         'content' => $live_content['content'],
                         'url' => $url,
-                        'type' => $post->post_type,
-                        'date' => $post->post_date,
-                        'excerpt' => $live_content['excerpt'],
-                        'categories' => $this->get_post_categories($post),
-                        'tags' => $this->get_post_tags($post),
-                        'meta' => $this->get_post_meta_data($post),
-                        'ai_summary' => $live_content['ai_summary'] ?? null
+                        'type' => $this->determine_page_type($url, $live_content),
+                        'date' => current_time('mysql'),
+                        'excerpt' => $live_content['excerpt'] ?? '',
+                        'source' => 'site_crawl',
+                        'ai_summary' => $live_content['ai_summary'] ?? null,
+                        'word_count' => str_word_count($live_content['content']),
+                        'crawl_metadata' => $live_content['metadata'] ?? array()
                     );
                 }
                 
                 $processed++;
                 
                 // Brief pause between requests to be respectful
-                if ($options['processing_type'] !== 'basic') {
-                    usleep(500000); // 0.5 second pause for AI processing
-                }
+                usleep(250000); // 0.25 second pause
             }
             
-            // Clear any memory between batches
+            // Clear memory between batches
             if (function_exists('gc_collect_cycles')) {
                 gc_collect_cycles();
             }
         }
         
-        error_log("LLM Generator: Crawled " . count($content_data) . " pages successfully");
+        error_log("LLM Generator: Successfully crawled " . count($content_data) . " pages from comprehensive discovery");
         return $content_data;
     }
 
@@ -217,7 +257,7 @@ class Adverto_LLM_Generator {
     }
 
     /**
-     * Crawl live page content using WordPress HTTP API
+     * Enhanced page crawling with intelligent chunking and AI processing
      */
     private function crawl_page_content($url, $processing_type = 'basic') {
         // Make HTTP request to get the live page
@@ -230,31 +270,659 @@ class Adverto_LLM_Generator {
         
         if (is_wp_error($response)) {
             error_log('LLM Generator: Failed to crawl ' . $url . ' - ' . $response->get_error_message());
-            return array('content' => '', 'excerpt' => '');
+            return array('content' => '', 'excerpt' => '', 'chunks' => array());
         }
         
         $html = wp_remote_retrieve_body($response);
         
         if (empty($html)) {
             error_log('LLM Generator: Empty response from ' . $url);
-            return array('content' => '', 'excerpt' => '');
+            return array('content' => '', 'excerpt' => '', 'chunks' => array());
         }
         
-        // Parse and extract meaningful content
+        // Extract and clean content using enhanced methods
         $extracted = $this->extract_meaningful_content($html);
         
-        // Use AI processing if requested and content is substantial
-        if (in_array($processing_type, ['ai_summaries', 'key_points', 'structured']) && 
-            !empty($extracted['content']) && strlen($extracted['content']) > 100) {
-            
-            $extracted['ai_summary'] = $this->generate_ai_content_summary($extracted['content'], $processing_type);
+        if (empty($extracted['content'])) {
+            return array('content' => '', 'excerpt' => '', 'chunks' => array());
         }
         
-        return $extracted;
+        // For advanced processing types, use intelligent chunking
+        if (in_array($processing_type, ['ai_summaries', 'key_points', 'structured'])) {
+            return $this->process_content_with_intelligent_chunking($extracted['content'], $url, $processing_type);
+        }
+        
+        // Basic processing - return simple extraction
+        return array(
+            'content' => $extracted['content'],
+            'excerpt' => $extracted['excerpt'],
+            'word_count' => $extracted['word_count'] ?? str_word_count($extracted['content']),
+            'char_count' => $extracted['char_count'] ?? strlen($extracted['content'])
+        );
     }
 
     /**
-     * Extract meaningful content from HTML
+     * Process content with intelligent chunking and AI enhancement
+     */
+    private function process_content_with_intelligent_chunking($content, $url, $processing_type) {
+        // Use intelligent chunking
+        $chunks = $this->intelligent_chunk_text($content, 2500);
+        
+        if (empty($chunks)) {
+            return array('content' => $content, 'excerpt' => substr($content, 0, 300), 'chunks' => array());
+        }
+        
+        $processed_chunks = array();
+        $enhanced_content_parts = array();
+        
+        foreach ($chunks as $chunk_number => $chunk) {
+            // Generate metadata for this chunk
+            $metadata = $this->generate_chunk_metadata($chunk, $url, $chunk_number, count($chunks));
+            
+            // Get AI-powered title and summary
+            $ai_extracted = $this->extract_ai_title_and_summary($chunk, $url, $chunk_number);
+            
+            $processed_chunk = array(
+                'chunk_number' => $chunk_number,
+                'title' => $ai_extracted['title'],
+                'summary' => $ai_extracted['summary'],
+                'content' => $chunk,
+                'metadata' => $metadata,
+                'word_count' => str_word_count($chunk),
+                'char_count' => strlen($chunk)
+            );
+            
+            $processed_chunks[] = $processed_chunk;
+            
+            // Build enhanced content with AI summaries
+            switch ($processing_type) {
+                case 'ai_summaries':
+                    $enhanced_content_parts[] = $ai_extracted['summary'];
+                    break;
+                case 'key_points':
+                    $enhanced_content_parts[] = "• " . $ai_extracted['title'] . ": " . $ai_extracted['summary'];
+                    break;
+                case 'structured':
+                    $enhanced_content_parts[] = "## " . $ai_extracted['title'] . "\n" . $ai_extracted['summary'];
+                    break;
+            }
+            
+            // Brief pause to respect API rate limits
+            if ($processing_type !== 'basic') {
+                usleep(500000); // 0.5 second pause
+            }
+        }
+        
+        // Combine enhanced content
+        $enhanced_content = implode("\n\n", $enhanced_content_parts);
+        $smart_excerpt = $this->create_smart_excerpt($enhanced_content, 400);
+        
+        return array(
+            'content' => $enhanced_content,
+            'excerpt' => $smart_excerpt,
+            'original_content' => $content,
+            'chunks' => $processed_chunks,
+            'chunk_count' => count($processed_chunks),
+            'total_words' => array_sum(array_column($processed_chunks, 'word_count')),
+            'processing_type' => $processing_type,
+            'ai_enhanced' => true
+        );
+    }
+
+    /**
+     * Enhanced intelligent text chunking inspired by crawl4AI
+     * Respects code blocks, paragraphs, and sentences
+     */
+    private function intelligent_chunk_text($text, $chunk_size = 3000) {
+        $chunks = array();
+        $start = 0;
+        $text_length = strlen($text);
+
+        while ($start < $text_length) {
+            $end = $start + $chunk_size;
+
+            // If we're at the end of the text, take what's left
+            if ($end >= $text_length) {
+                $chunk = trim(substr($text, $start));
+                if (!empty($chunk)) {
+                    $chunks[] = $chunk;
+                }
+                break;
+            }
+
+            $current_chunk = substr($text, $start, $chunk_size);
+
+            // Try to find a code block boundary first (```)
+            $code_block_pos = strrpos($current_chunk, '```');
+            if ($code_block_pos !== false && $code_block_pos > ($chunk_size * 0.3)) {
+                $end = $start + $code_block_pos;
+            }
+            // Try to break at a paragraph (double newline)
+            elseif (strpos($current_chunk, "\n\n") !== false) {
+                $last_break = strrpos($current_chunk, "\n\n");
+                if ($last_break > ($chunk_size * 0.3)) {
+                    $end = $start + $last_break;
+                }
+            }
+            // Try to break at a sentence
+            elseif (strpos($current_chunk, '. ') !== false) {
+                $last_period = strrpos($current_chunk, '. ');
+                if ($last_period > ($chunk_size * 0.3)) {
+                    $end = $start + $last_period + 1;
+                }
+            }
+            // Try to break at any whitespace
+            elseif (strpos($current_chunk, ' ') !== false) {
+                $last_space = strrpos($current_chunk, ' ');
+                if ($last_space > ($chunk_size * 0.5)) {
+                    $end = $start + $last_space;
+                }
+            }
+
+            $chunk = trim(substr($text, $start, $end - $start));
+            if (!empty($chunk)) {
+                $chunks[] = $chunk;
+            }
+
+            $start = max($start + 1, $end);
+        }
+
+        return $chunks;
+    }
+
+    /**
+     * Enhanced AI-powered title and summary extraction
+     * Uses structured JSON prompts like crawl4AI
+     */
+    private function extract_ai_title_and_summary($chunk, $url, $chunk_number) {
+        $system_prompt = "You are an AI that extracts titles and summaries from website content chunks. 
+        Return a JSON object with 'title' and 'summary' keys.
+        For the title: If this seems like the start of a document, extract its title. If it's a middle chunk, derive a descriptive title based on the main topic.
+        For the summary: Create a concise 1-2 sentence summary of the main points in this chunk.
+        Keep both title and summary concise but informative. Use British English spelling.";
+
+        $user_prompt = "URL: {$url}\nChunk #{$chunk_number}\n\nContent:\n" . substr($chunk, 0, 1000) . "...";
+
+        $prompt = "System: {$system_prompt}\n\nUser: {$user_prompt}\n\nRespond with valid JSON only:";
+
+        $response = $this->call_openai_api($prompt, 'gpt-4o-mini');
+
+        if ($response) {
+            // Try to parse JSON response
+            $decoded = json_decode($response, true);
+            if (json_last_error() === JSON_ERROR_NONE && isset($decoded['title']) && isset($decoded['summary'])) {
+                return $decoded;
+            }
+        }
+
+        // Fallback if JSON parsing fails
+        return array(
+            'title' => $this->generate_fallback_title($chunk, $url),
+            'summary' => $this->generate_fallback_summary($chunk)
+        );
+    }
+
+    /**
+     * Generate enhanced metadata for chunks (inspired by crawl4AI tracking)
+     */
+    private function generate_chunk_metadata($chunk, $url, $chunk_number, $total_chunks) {
+        $metadata = array(
+            'source_url' => $url,
+            'chunk_position' => $chunk_number,
+            'total_chunks' => $total_chunks,
+            'word_count' => str_word_count($chunk),
+            'character_count' => strlen($chunk),
+            'has_code_blocks' => (strpos($chunk, '```') !== false || strpos($chunk, '<code>') !== false),
+            'has_lists' => (strpos($chunk, '- ') !== false || strpos($chunk, '* ') !== false || preg_match('/\d+\.\s/', $chunk)),
+            'has_headings' => (strpos($chunk, '#') !== false || preg_match('/<h[1-6]/', $chunk)),
+            'paragraph_count' => substr_count($chunk, "\n\n"),
+            'processing_timestamp' => current_time('mysql'),
+            'content_hash' => md5($chunk), // For duplicate detection
+            'url_path' => parse_url($url, PHP_URL_PATH),
+            'domain' => parse_url($url, PHP_URL_HOST),
+            'processing_version' => '2.1',
+            'generator' => 'Adverto Media LLM Generator'
+        );
+        
+        // Estimate content complexity for processing decisions
+        $complexity_score = 0;
+        if ($metadata['has_code_blocks']) $complexity_score += 3;
+        if ($metadata['has_lists']) $complexity_score += 2;
+        if ($metadata['has_headings']) $complexity_score += 1;
+        if ($metadata['word_count'] > 1000) $complexity_score += 2;
+        if ($metadata['paragraph_count'] > 5) $complexity_score += 1;
+        
+        $metadata['complexity_score'] = $complexity_score;
+        $metadata['content_type'] = $this->classify_content_type($chunk);
+        
+        return $metadata;
+    }
+
+    /**
+     * Classify content type for better processing
+     */
+    private function classify_content_type($content) {
+        $code_density = (substr_count($content, '```') + substr_count($content, '<code>')) / max(1, strlen($content) / 100);
+        $list_density = (substr_count($content, '- ') + substr_count($content, '* ')) / max(1, str_word_count($content) / 10);
+        
+        if ($code_density > 0.5) return 'technical';
+        if ($list_density > 0.8) return 'list_heavy';
+        if (strpos($content, 'function') !== false && strpos($content, 'return') !== false) return 'code';
+        if (preg_match('/\b(tutorial|guide|how to|step by step)\b/i', $content)) return 'tutorial';
+        if (preg_match('/\b(API|endpoint|parameter|response)\b/i', $content)) return 'documentation';
+        
+        return 'general';
+    }
+
+    /**
+     * Create smart excerpt that preserves important information
+     */
+    private function create_smart_excerpt($content, $max_length = 400) {
+        if (strlen($content) <= $max_length) {
+            return $content;
+        }
+        
+        // Try to find natural break points
+        $sentences = preg_split('/(?<=[.!?])\s+/', $content);
+        $excerpt = '';
+        
+        foreach ($sentences as $sentence) {
+            if (strlen($excerpt . $sentence) <= $max_length - 3) {
+                $excerpt .= $sentence . ' ';
+            } else {
+                break;
+            }
+        }
+        
+        // If we couldn't get enough content, fall back to word boundary
+        if (strlen(trim($excerpt)) < $max_length / 2) {
+            $excerpt = substr($content, 0, $max_length - 3);
+            $last_space = strrpos($excerpt, ' ');
+            if ($last_space !== false) {
+                $excerpt = substr($excerpt, 0, $last_space);
+            }
+        }
+        
+        return trim($excerpt) . '...';
+    }
+
+    /**
+     * Discover URLs from WordPress sitemaps
+     */
+    private function discover_from_sitemap($base_url) {
+        $sitemap_urls = array();
+        
+        // Try common sitemap locations
+        $sitemap_locations = array(
+            '/sitemap.xml',
+            '/sitemap_index.xml', 
+            '/wp-sitemap.xml',
+            '/sitemap-index.xml',
+            '/sitemaps.xml'
+        );
+        
+        foreach ($sitemap_locations as $sitemap_path) {
+            $sitemap_url = rtrim($base_url, '/') . $sitemap_path;
+            $urls = $this->parse_sitemap($sitemap_url);
+            if (!empty($urls)) {
+                $sitemap_urls = array_merge($sitemap_urls, $urls);
+                error_log('LLM Generator: Found ' . count($urls) . ' URLs in ' . $sitemap_url);
+                break; // Use first working sitemap
+            }
+        }
+        
+        return $sitemap_urls;
+    }
+
+    /**
+     * Parse XML sitemap and extract URLs
+     */
+    private function parse_sitemap($sitemap_url) {
+        $response = wp_remote_get($sitemap_url, array(
+            'timeout' => 30,
+            'user-agent' => 'WordPress/LLM-Generator'
+        ));
+        
+        if (is_wp_error($response)) {
+            return array();
+        }
+        
+        $xml_content = wp_remote_retrieve_body($response);
+        if (empty($xml_content)) {
+            return array();
+        }
+        
+        // Parse XML and extract URLs
+        $urls = array();
+        
+        // Handle sitemap index files
+        if (strpos($xml_content, '<sitemapindex') !== false) {
+            preg_match_all('/<loc>(.*?)<\/loc>/i', $xml_content, $matches);
+            foreach ($matches[1] as $nested_sitemap) {
+                $nested_urls = $this->parse_sitemap($nested_sitemap);
+                $urls = array_merge($urls, $nested_urls);
+                if (count($urls) > 200) break; // Limit to prevent overload
+            }
+        } else {
+            // Handle regular sitemap
+            preg_match_all('/<loc>(.*?)<\/loc>/i', $xml_content, $matches);
+            $urls = $matches[1];
+        }
+        
+        return array_filter($urls);
+    }
+
+    /**
+     * Discover URLs from navigation menus and homepage links
+     */
+    private function discover_from_navigation($base_url, $site_domain) {
+        $discovered_urls = array();
+        
+        // Crawl homepage for links
+        $homepage_links = $this->extract_internal_links($base_url, $site_domain);
+        $discovered_urls = array_merge($discovered_urls, $homepage_links);
+        
+        // Get WordPress menu items
+        $menu_urls = $this->get_wordpress_menu_urls();
+        $discovered_urls = array_merge($discovered_urls, $menu_urls);
+        
+        return $discovered_urls;
+    }
+
+    /**
+     * Extract internal links from a page
+     */
+    private function extract_internal_links($url, $site_domain) {
+        $response = wp_remote_get($url, array(
+            'timeout' => 30,
+            'headers' => array(
+                'User-Agent' => 'Mozilla/5.0 (compatible; WordPress LLM Generator)'
+            )
+        ));
+        
+        if (is_wp_error($response)) {
+            return array();
+        }
+        
+        $html = wp_remote_retrieve_body($response);
+        $links = array();
+        
+        // Extract all href attributes
+        preg_match_all('/<a[^>]+href=["\']([^"\']+)["\'][^>]*>/i', $html, $matches);
+        
+        foreach ($matches[1] as $link) {
+            // Skip fragments, javascript, and mailtos
+            if (strpos($link, '#') === 0 || strpos($link, 'javascript:') === 0 || strpos($link, 'mailto:') === 0) {
+                continue;
+            }
+            
+            // Convert relative URLs to absolute
+            if (strpos($link, 'http') !== 0) {
+                if (strpos($link, '/') === 0) {
+                    $link = rtrim(home_url(), '/') . $link;
+                } else {
+                    $link = rtrim(dirname($url), '/') . '/' . $link;
+                }
+            }
+            
+            // Only include internal links
+            $link_domain = parse_url($link, PHP_URL_HOST);
+            if ($link_domain === $site_domain) {
+                // Remove fragments and query params for cleaner URLs
+                $link = strtok($link, '#');
+                $link = strtok($link, '?');
+                $links[] = $link;
+            }
+        }
+        
+        return array_unique($links);
+    }
+
+    /**
+     * Get WordPress menu URLs
+     */
+    private function get_wordpress_menu_urls() {
+        $menu_urls = array();
+        
+        $menus = wp_get_nav_menus();
+        foreach ($menus as $menu) {
+            $menu_items = wp_get_nav_menu_items($menu->term_id);
+            if (!empty($menu_items)) {
+                foreach ($menu_items as $item) {
+                    if (!empty($item->url) && strpos($item->url, home_url()) === 0) {
+                        $menu_urls[] = $item->url;
+                    }
+                }
+            }
+        }
+        
+        return $menu_urls;
+    }
+
+    /**
+     * Get WordPress page URLs from database
+     */
+    private function get_wordpress_page_urls($options) {
+        $post_types = array();
+        if ($options['include_pages']) $post_types[] = 'page';
+        if ($options['include_posts']) $post_types[] = 'post';
+        if ($options['include_products'] && post_type_exists('product')) $post_types[] = 'product';
+        
+        if ($options['include_custom_post_types']) {
+            $custom_post_types = get_post_types(array('public' => true, '_builtin' => false), 'names');
+            $post_types = array_merge($post_types, $custom_post_types);
+        }
+        
+        $args = array(
+            'post_type' => $post_types,
+            'post_status' => 'publish',
+            'numberposts' => $options['max_posts'],
+            'fields' => 'ids'
+        );
+        
+        $post_ids = get_posts($args);
+        $urls = array();
+        
+        foreach ($post_ids as $post_id) {
+            $urls[] = get_permalink($post_id);
+        }
+        
+        return $urls;
+    }
+
+    /**
+     * Discover additional URLs through recursive link following
+     */
+    private function discover_recursive_links($initial_urls, $site_domain, $max_depth, $current_depth = 1) {
+        if ($current_depth >= $max_depth || empty($initial_urls)) {
+            return array();
+        }
+        
+        $new_urls = array();
+        $sample_urls = array_slice($initial_urls, 0, 10); // Limit to prevent excessive crawling
+        
+        foreach ($sample_urls as $url) {
+            $found_links = $this->extract_internal_links($url, $site_domain);
+            $new_urls = array_merge($new_urls, $found_links);
+            
+            // Limit recursive discovery
+            if (count($new_urls) > 100) {
+                break;
+            }
+        }
+        
+        // Remove URLs we already have
+        $new_urls = array_diff($new_urls, $initial_urls);
+        
+        // Recursively find more URLs
+        if (!empty($new_urls) && $current_depth < $max_depth - 1) {
+            $deeper_urls = $this->discover_recursive_links($new_urls, $site_domain, $max_depth, $current_depth + 1);
+            $new_urls = array_merge($new_urls, $deeper_urls);
+        }
+        
+        return array_unique($new_urls);
+    }
+
+    /**
+     * Clean and filter URLs for processing
+     */
+    private function clean_and_filter_urls($urls, $site_domain, $options) {
+        $cleaned_urls = array();
+        
+        foreach ($urls as $url) {
+            // Skip if not a valid URL
+            if (!filter_var($url, FILTER_VALIDATE_URL)) {
+                continue;
+            }
+            
+            // Check domain
+            $url_domain = parse_url($url, PHP_URL_HOST);
+            if ($url_domain !== $site_domain) {
+                continue;
+            }
+            
+            // Remove query parameters and fragments
+            $url = strtok($url, '?');
+            $url = strtok($url, '#');
+            
+            // Skip common unwanted paths
+            $path = parse_url($url, PHP_URL_PATH);
+            $skip_patterns = array(
+                '/wp-admin',
+                '/wp-content',
+                '/wp-includes',
+                '/feed',
+                '/rss',
+                '/xmlrpc',
+                '/.well-known',
+                '/wp-json'
+            );
+            
+            $should_skip = false;
+            foreach ($skip_patterns as $pattern) {
+                if (strpos($path, $pattern) !== false) {
+                    $should_skip = true;
+                    break;
+                }
+            }
+            
+            if (!$should_skip) {
+                $cleaned_urls[] = $url;
+            }
+        }
+        
+        return array_unique($cleaned_urls);
+    }
+
+    /**
+     * Extract page title from content or derive from URL
+     */
+    private function extract_page_title($content, $url) {
+        // Try to get title from content if it's AI-processed
+        if (!empty($content['chunks'])) {
+            foreach ($content['chunks'] as $chunk) {
+                if (!empty($chunk['title']) && strlen($chunk['title']) > 3) {
+                    return $chunk['title'];
+                }
+            }
+        }
+        
+        // Try to extract from HTML title tag if available
+        if (is_string($content['content'])) {
+            if (preg_match('/<title[^>]*>(.*?)<\/title>/i', $content['content'], $matches)) {
+                $title = trim(strip_tags($matches[1]));
+                if (strlen($title) > 3) {
+                    return $title;
+                }
+            }
+        }
+        
+        // Fallback to URL-based title
+        $path = parse_url($url, PHP_URL_PATH);
+        $segments = explode('/', trim($path, '/'));
+        $last_segment = end($segments);
+        
+        if (empty($last_segment)) {
+            return 'Homepage';
+        }
+        
+        // Clean up URL segment to make readable title
+        $title = str_replace(array('-', '_'), ' ', $last_segment);
+        $title = ucwords($title);
+        
+        return $title ?: 'Untitled Page';
+    }
+
+    /**
+     * Determine page type based on URL and content
+     */
+    private function determine_page_type($url, $content) {
+        $path = parse_url($url, PHP_URL_PATH);
+        
+        // Check URL patterns
+        if (strpos($path, '/product') !== false) return 'product';
+        if (strpos($path, '/service') !== false) return 'service'; 
+        if (strpos($path, '/blog') !== false || strpos($path, '/news') !== false) return 'blog';
+        if (strpos($path, '/about') !== false) return 'about';
+        if (strpos($path, '/contact') !== false) return 'contact';
+        if ($path === '/' || empty($path)) return 'homepage';
+        
+        // Check content metadata if available
+        if (!empty($content['metadata']['content_type'])) {
+            return $content['metadata']['content_type'];
+        }
+        
+        return 'page';
+    }
+
+    /**
+     * WordPress-only content fallback method
+     */
+    private function get_wordpress_content_only($options) {
+        $post_types = array();
+        if ($options['include_pages']) $post_types[] = 'page';
+        if ($options['include_posts']) $post_types[] = 'post';
+        if ($options['include_products'] && post_type_exists('product')) $post_types[] = 'product';
+        
+        if ($options['include_custom_post_types']) {
+            $custom_post_types = get_post_types(array('public' => true, '_builtin' => false), 'names');
+            $post_types = array_merge($post_types, $custom_post_types);
+        }
+        
+        $args = array(
+            'post_type' => $post_types,
+            'post_status' => 'publish', 
+            'numberposts' => $options['max_posts'],
+            'orderby' => 'menu_order',
+            'order' => 'ASC'
+        );
+        
+        $posts = get_posts($args);
+        $content_data = array();
+        
+        foreach ($posts as $post) {
+            $url = get_permalink($post->ID);
+            $live_content = $this->crawl_page_content($url, $options['processing_type']);
+            
+            if (!empty($live_content['content'])) {
+                $content_data[] = array(
+                    'id' => $post->ID,
+                    'title' => $post->post_title,
+                    'content' => $live_content['content'],
+                    'url' => $url,
+                    'type' => $post->post_type,
+                    'date' => $post->post_date,
+                    'excerpt' => $live_content['excerpt'],
+                    'source' => 'wordpress_only'
+                );
+            }
+        }
+        
+        return $content_data;
+    }
+
+    /**
+     * Enhanced content extraction with intelligent chunking
      */
     private function extract_meaningful_content($html) {
         // Remove script and style tags
@@ -265,18 +933,19 @@ class Adverto_LLM_Generator {
         // Remove comments
         $html = preg_replace('/<!--.*?-->/s', '', $html);
         
-        // Try to extract main content areas (prioritized order)
+        // Enhanced content patterns with priority order
         $content_patterns = array(
-            // WordPress specific
+            // WordPress specific (high priority)
+            '/<article[^>]*>(.*?)<\/article>/si',
             '/<div[^>]*class="[^"]*entry-content[^"]*"[^>]*>(.*?)<\/div>/si',
             '/<div[^>]*class="[^"]*post-content[^"]*"[^>]*>(.*?)<\/div>/si',
             '/<div[^>]*class="[^"]*content-area[^"]*"[^>]*>(.*?)<\/div>/si',
             
-            // HTML5 semantic elements
+            // HTML5 semantic elements (medium priority)
             '/<main[^>]*>(.*?)<\/main>/si',
-            '/<article[^>]*>(.*?)<\/article>/si',
+            '/<section[^>]*class="[^"]*content[^"]*"[^>]*>(.*?)<\/section>/si',
             
-            // Common content containers
+            // Generic content containers (lower priority)
             '/<div[^>]*class="[^"]*content[^"]*"[^>]*>(.*?)<\/div>/si',
             '/<div[^>]*id="[^"]*content[^"]*"[^>]*>(.*?)<\/div>/si',
             '/<div[^>]*class="[^"]*container[^"]*"[^>]*>(.*?)<\/div>/si',
@@ -297,87 +966,167 @@ class Adverto_LLM_Generator {
             $extracted_content = $html;
         }
         
-        // Clean the extracted content
-        return $this->clean_extracted_content($extracted_content);
+        // Clean the extracted content with enhanced filtering
+        return $this->clean_extracted_content_enhanced($extracted_content);
     }
 
     /**
-     * Clean extracted HTML content
+     * Enhanced content cleaning inspired by crawl4AI techniques
      */
-    private function clean_extracted_content($content) {
-        // Remove navigation, footer, sidebar, and other non-content elements
+    private function clean_extracted_content_enhanced($content) {
+        // Enhanced removal patterns
         $remove_patterns = array(
+            // Navigation and UI elements
             '/<nav[^>]*>.*?<\/nav>/si',
             '/<footer[^>]*>.*?<\/footer>/si',
             '/<header[^>]*>.*?<\/header>/si',
             '/<aside[^>]*>.*?<\/aside>/si',
+            
+            // WordPress specific
             '/<div[^>]*class="[^"]*nav[^"]*"[^>]*>.*?<\/div>/si',
             '/<div[^>]*class="[^"]*menu[^"]*"[^>]*>.*?<\/div>/si',
             '/<div[^>]*class="[^"]*sidebar[^"]*"[^>]*>.*?<\/div>/si',
             '/<div[^>]*class="[^"]*footer[^"]*"[^>]*>.*?<\/div>/si',
             '/<div[^>]*class="[^"]*breadcrumb[^"]*"[^>]*>.*?<\/div>/si',
+            '/<div[^>]*class="[^"]*widget[^"]*"[^>]*>.*?<\/div>/si',
+            
+            // Forms and interactive elements
             '/<form[^>]*>.*?<\/form>/si',
+            '/<button[^>]*>.*?<\/button>/si',
+            '/<input[^>]*\/?>/si',
+            '/<select[^>]*>.*?<\/select>/si',
+            '/<textarea[^>]*>.*?<\/textarea>/si',
+            
+            // Social and sharing widgets
+            '/<div[^>]*class="[^"]*share[^"]*"[^>]*>.*?<\/div>/si',
+            '/<div[^>]*class="[^"]*social[^"]*"[^>]*>.*?<\/div>/si',
+            '/<div[^>]*class="[^"]*comment[^"]*"[^>]*>.*?<\/div>/si',
+            
+            // Advertisement containers
+            '/<div[^>]*class="[^"]*ad[^"]*"[^>]*>.*?<\/div>/si',
+            '/<div[^>]*class="[^"]*advertisement[^"]*"[^>]*>.*?<\/div>/si',
+            
+            // Skip links and screen reader elements
+            '/<a[^>]*class="[^"]*skip[^"]*"[^>]*>.*?<\/a>/si',
+            '/<div[^>]*class="[^"]*screen-reader[^"]*"[^>]*>.*?<\/div>/si',
         );
         
         foreach ($remove_patterns as $pattern) {
             $content = preg_replace($pattern, '', $content);
         }
         
-        // Remove all HTML tags but preserve paragraph breaks
-        $content = preg_replace('/<\/p>/i', "\n\n", $content);
+        // Preserve code blocks before HTML removal
+        $code_blocks = array();
+        $content = preg_replace_callback('/<pre[^>]*>(.*?)<\/pre>/si', function($matches) use (&$code_blocks) {
+            $placeholder = '___CODE_BLOCK_' . count($code_blocks) . '___';
+            $code_blocks[$placeholder] = strip_tags($matches[1]);
+            return $placeholder;
+        }, $content);
+        
+        $content = preg_replace_callback('/<code[^>]*>(.*?)<\/code>/si', function($matches) use (&$code_blocks) {
+            $placeholder = '___INLINE_CODE_' . count($code_blocks) . '___';
+            $code_blocks[$placeholder] = '`' . strip_tags($matches[1]) . '`';
+            return $placeholder;
+        }, $content);
+        
+        // Convert lists to readable format before stripping HTML
+        $content = preg_replace('/<\/li>/i', "</li>\n", $content);
+        $content = preg_replace('/<li[^>]*>/i', "• ", $content);
+        
+        // Convert headings to markdown-style
+        $content = preg_replace('/<\/h[1-6]>/i', "</h>\n\n", $content);
+        $content = preg_replace('/<h1[^>]*>/i', "# ", $content);
+        $content = preg_replace('/<h2[^>]*>/i', "## ", $content);
+        $content = preg_replace('/<h3[^>]*>/i', "### ", $content);
+        $content = preg_replace('/<h[4-6][^>]*>/i', "#### ", $content);
+        
+        // Convert paragraphs to preserve structure
+        $content = preg_replace('/<\/p>/i', "</p>\n\n", $content);
+        $content = preg_replace('/<p[^>]*>/i', "", $content);
         $content = preg_replace('/<br[^>]*>/i', "\n", $content);
+        
+        // Strip remaining HTML tags
         $content = strip_tags($content);
         
-        // Remove extra whitespace and normalize
+        // Restore code blocks
+        foreach ($code_blocks as $placeholder => $code) {
+            $content = str_replace($placeholder, $code, $content);
+        }
+        
+        // Clean up whitespace intelligently
         $content = preg_replace('/\n\s*\n\s*\n/', "\n\n", $content); // Remove excessive line breaks
         $content = preg_replace('/[ \t]+/', ' ', $content); // Normalize spaces
         $content = trim($content);
         
-        // Remove empty lines and clean up
+        // Remove empty lines and very short lines
         $lines = explode("\n", $content);
         $cleaned_lines = array();
         
         foreach ($lines as $line) {
             $line = trim($line);
-            if (!empty($line) && strlen($line) > 5) { // Skip very short lines
-                $cleaned_lines[] = $line;
+            if (!empty($line) && strlen($line) > 3) { // Skip very short lines
+                // Skip lines that are likely navigation or boilerplate
+                if (!preg_match('/^(home|about|contact|menu|search|login|register|\d+|\W+)$/i', $line)) {
+                    $cleaned_lines[] = $line;
+                }
             }
         }
         
         $text_content = implode("\n", $cleaned_lines);
         
-        // Create excerpt (first 250 characters of meaningful content)
-        $excerpt = $this->create_smart_excerpt($text_content, 250);
+        // Create intelligent excerpt
+        $excerpt = $this->create_smart_excerpt($text_content, 300);
         
         return array(
             'content' => $text_content,
-            'excerpt' => $excerpt
+            'excerpt' => $excerpt,
+            'word_count' => str_word_count($text_content),
+            'char_count' => strlen($text_content)
         );
     }
 
     /**
-     * Create smart excerpt from content
+     * Generate fallback title when AI extraction fails
      */
-    private function create_smart_excerpt($content, $max_length = 250) {
-        if (strlen($content) <= $max_length) {
-            return $content;
+    private function generate_fallback_title($chunk, $url) {
+        // Try to extract from first heading or sentence
+        if (preg_match('/^#+\s*(.+?)(?:\n|$)/', $chunk, $matches)) {
+            return trim($matches[1]);
         }
         
-        // Try to break at sentence end
-        $excerpt = substr($content, 0, $max_length);
-        $last_sentence = strrpos($excerpt, '.');
-        
-        if ($last_sentence !== false && $last_sentence > ($max_length * 0.7)) {
-            $excerpt = substr($excerpt, 0, $last_sentence + 1);
-        } else {
-            // Break at word boundary
-            $last_space = strrpos($excerpt, ' ');
-            if ($last_space !== false) {
-                $excerpt = substr($excerpt, 0, $last_space) . '...';
+        // Extract from first sentence
+        if (preg_match('/^([^.!?]+[.!?])/', $chunk, $matches)) {
+            $title = trim($matches[1]);
+            if (strlen($title) < 80) {
+                return $title;
             }
         }
         
-        return $excerpt;
+        // Use URL path as fallback
+        $path = parse_url($url, PHP_URL_PATH);
+        $segments = explode('/', trim($path, '/'));
+        $last_segment = end($segments);
+        
+        return ucwords(str_replace(array('-', '_'), ' ', $last_segment)) ?: 'Content Section';
+    }
+
+    /**
+     * Generate fallback summary when AI extraction fails
+     */
+    private function generate_fallback_summary($chunk) {
+        // Take first 2-3 sentences
+        $sentences = preg_split('/[.!?]+/', $chunk, -1, PREG_SPLIT_NO_EMPTY);
+        $summary_sentences = array_slice($sentences, 0, 2);
+        
+        $summary = trim(implode('. ', $summary_sentences));
+        if (strlen($summary) < 50) {
+            // Add third sentence if summary is too short
+            if (isset($sentences[2])) {
+                $summary .= '. ' . trim($sentences[2]);
+            }
+        }
+        
+        return $summary . '.';
     }
 
     /**
@@ -1070,6 +1819,9 @@ class Adverto_LLM_Generator {
             'include_posts' => !empty($_POST['include_posts']),
             'include_products' => !empty($_POST['include_products']),
             'include_custom_post_types' => !empty($_POST['include_custom_post_types']),
+            'discover_all_pages' => !empty($_POST['discover_all_pages']),
+            'max_pages_to_crawl' => intval($_POST['max_pages_to_crawl'] ?? 100),
+            'max_crawl_depth' => intval($_POST['max_crawl_depth'] ?? 2),
             'processing_type' => sanitize_text_field($_POST['processing_type'] ?? 'summary'),
             'max_posts' => intval($_POST['max_posts'] ?? -1)
         );

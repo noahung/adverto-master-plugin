@@ -171,19 +171,19 @@ $api_key = isset($settings['openai_api_key']) ? $settings['openai_api_key'] : ''
                 </div>
             </div>
 
-            <!-- LLM.txt Generator AI -->
+            <!-- LLMs.txt Generator AI -->
             <div class="adverto-card">
                 <div class="adverto-card-header">
                     <h3 class="adverto-card-title">
                         <span class="material-icons">smart_toy</span>
-                        <?php _e('LLM.txt Generator AI', 'adverto-master'); ?>
+                        <?php _e('LLMs.txt Generator AI', 'adverto-master'); ?>
                     </h3>
                     <div class="adverto-card-subtitle">
                         <?php _e('Generate AI-readable site summaries', 'adverto-master'); ?>
                     </div>
                 </div>
                 <div class="adverto-card-content">
-                    <p><?php _e('Create LLM.txt files that help AI systems understand your website content, improving chatbot interactions and AI-powered search results.', 'adverto-master'); ?></p>
+                    <p><?php _e('Create LLMs.txt files that help AI systems understand your website content, improving chatbot interactions and AI-powered search results.', 'adverto-master'); ?></p>
                     <div class="adverto-progress" style="margin: 16px 0;">
                         <div class="adverto-progress-bar" data-progress="96"></div>
                     </div>

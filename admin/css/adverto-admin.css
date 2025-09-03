@@ -1516,6 +1516,113 @@ body, .adverto-container {
     background: rgba(66, 133, 244, 0.05);
 }
 
+.content-type-card.featured {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: 2px solid #667eea;
+    color: white;
+}
+
+.content-type-card.featured:hover {
+    border-color: #764ba2;
+    box-shadow: 0 12px 30px rgba(102, 126, 234, 0.3);
+    transform: translateY(-3px);
+}
+
+.content-type-card.featured .content-icon {
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+}
+
+.content-type-card.featured .content-info h4,
+.content-type-card.featured .content-info p,
+.content-type-card.featured .content-info small {
+    color: white;
+}
+
+.content-type-card.featured .content-count {
+    color: #ffffff;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+/* Advanced Discovery Options */
+.discovery-options-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 24px;
+    margin-bottom: 32px;
+}
+
+.option-group {
+    background: #f8f9fc;
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid #e3e4e9;
+}
+
+.option-group label {
+    font-weight: 600;
+    color: #2c3e50;
+    display: block;
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+.option-group select {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid #e3e4e9;
+    border-radius: 8px;
+    background: white;
+    font-size: 14px;
+    transition: border-color 0.3s ease;
+    margin-bottom: 8px;
+}
+
+.option-group select:focus {
+    outline: none;
+    border-color: #4285f4;
+    box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.1);
+}
+
+.help-text {
+    color: #757575;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.discovery-methods {
+    background: #f0f7ff;
+    border-radius: 12px;
+    padding: 24px;
+    border-left: 4px solid #4285f4;
+}
+
+.discovery-methods h4 {
+    margin: 0 0 16px 0;
+    color: #1a73e8;
+    font-weight: 600;
+}
+
+.discovery-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.discovery-list li {
+    display: flex;
+    align-items: center;
+    padding: 8px 0;
+    color: #2c3e50;
+    font-weight: 500;
+}
+
+.discovery-list li .material-icons {
+    color: #4285f4;
+    margin-right: 12px;
+    font-size: 20px;
+}
+
 .content-icon {
     width: 50px;
     height: 50px;

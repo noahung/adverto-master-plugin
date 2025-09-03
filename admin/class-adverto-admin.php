@@ -112,11 +112,11 @@ class Adverto_Admin {
             array($this, 'display_side_tab_manager')
         );
 
-        // LLM.txt Generator AI
+        // LLMs.txt Generator AI
         add_submenu_page(
             'adverto-master',
-            __('LLM.txt Generator AI', 'adverto-master'),
-            __('LLM.txt Generator AI', 'adverto-master'),
+            __('LLMs.txt Generator AI', 'adverto-master'),
+            __('LLMs.txt Generator AI', 'adverto-master'),
             'manage_options',
             'adverto-llm-generator',
             array($this, 'display_llm_generator')
@@ -172,7 +172,7 @@ class Adverto_Admin {
     }
 
     /**
-     * Display LLM.txt Generator page
+     * Display LLMs.txt Generator page
      */
     public function display_llm_generator() {
         include_once ADVERTO_MASTER_ADMIN_DIR . 'views/llm-generator.php';
