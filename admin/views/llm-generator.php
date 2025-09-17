@@ -693,7 +693,7 @@ $custom_post_types = get_post_types(array('public' => true, '_builtin' => false)
             console.log('View button clicked');
             
             // Open the public URL in a new tab
-            window.open('<?php echo home_url('/llm.txt'); ?>', '_blank');
+            window.open('<?php echo home_url('/llms.txt'); ?>', '_blank');
         });
         
         // Update cost estimation based on selected options
@@ -1028,7 +1028,7 @@ $custom_post_types = get_post_types(array('public' => true, '_builtin' => false)
             </div>
         </div>
         <div class="footer-tech">
-            <p>Intelligent LLM.txt generation • AI-powered content analysis • Professional web crawling</p>
+            <p>Intelligent LLMs.txt generation • AI-powered content analysis • Professional web crawling</p>
         </div>
     </div>
 </div>

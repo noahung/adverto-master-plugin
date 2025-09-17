@@ -110,46 +110,50 @@ class Adverto_LLM_Generator {
      */
     private function discover_all_site_pages($options) {
         error_log('LLM Generator: Starting comprehensive site discovery');
-        
+
         $discovered_urls = array();
         $base_url = home_url();
         $site_domain = parse_url($base_url, PHP_URL_HOST);
-        
+
         // Method 1: WordPress sitemap discovery
         error_log('LLM Generator: Checking sitemaps...');
         $sitemap_urls = $this->discover_from_sitemap($base_url);
         $discovered_urls = array_merge($discovered_urls, $sitemap_urls);
         error_log('LLM Generator: Found ' . count($sitemap_urls) . ' URLs from sitemaps');
-        
+
         // Method 2: Crawl navigation menus and internal links
         error_log('LLM Generator: Crawling navigation and homepage...');
         $navigation_urls = $this->discover_from_navigation($base_url, $site_domain);
         $discovered_urls = array_merge($discovered_urls, $navigation_urls);
         error_log('LLM Generator: Found ' . count($navigation_urls) . ' URLs from navigation');
-        
+
         // Method 3: WordPress database pages
         error_log('LLM Generator: Getting WordPress pages...');
         $wp_urls = $this->get_wordpress_page_urls($options);
         $discovered_urls = array_merge($discovered_urls, $wp_urls);
         error_log('LLM Generator: Found ' . count($wp_urls) . ' URLs from WordPress');
-        
-        // Method 4: Recursive link discovery (limited depth)
-        if ($options['max_crawl_depth'] > 1 && count($discovered_urls) < 50) {
-            error_log('LLM Generator: Performing recursive link discovery...');
-            $recursive_urls = $this->discover_recursive_links($discovered_urls, $site_domain, $options['max_crawl_depth']);
-            $discovered_urls = array_merge($discovered_urls, $recursive_urls);
-            error_log('LLM Generator: Found ' . count($recursive_urls) . ' additional URLs from recursive crawling');
-        }
-        
+
+        // Method 4: Enhanced recursive link discovery (always run, not just when < 50)
+        error_log('LLM Generator: Performing enhanced recursive link discovery...');
+        $recursive_urls = $this->discover_recursive_links_enhanced($discovered_urls, $site_domain, $options);
+        $discovered_urls = array_merge($discovered_urls, $recursive_urls);
+        error_log('LLM Generator: Found ' . count($recursive_urls) . ' additional URLs from enhanced recursive crawling');
+
+        // Method 5: Discover from additional sources
+        error_log('LLM Generator: Checking additional sources...');
+        $additional_urls = $this->discover_from_additional_sources($base_url, $site_domain);
+        $discovered_urls = array_merge($discovered_urls, $additional_urls);
+        error_log('LLM Generator: Found ' . count($additional_urls) . ' URLs from additional sources');
+
         // Clean and deduplicate URLs
         $discovered_urls = $this->clean_and_filter_urls($discovered_urls, $site_domain, $options);
-        
+
         // Limit for safety and performance
         if (count($discovered_urls) > $options['max_pages_to_crawl']) {
             $discovered_urls = array_slice($discovered_urls, 0, $options['max_pages_to_crawl']);
             error_log('LLM Generator: Limited to ' . $options['max_pages_to_crawl'] . ' URLs for performance');
         }
-        
+
         error_log('LLM Generator: Final discovered URLs count: ' . count($discovered_urls));
         return array_unique($discovered_urls);
     }
@@ -223,15 +227,15 @@ class Adverto_LLM_Generator {
     private function get_batch_size($processing_type) {
         switch ($processing_type) {
             case 'basic':
-                return 20; // Fast processing, larger batches
+                return 25; // Increased from 20 for better performance
             case 'ai_summaries':
-                return 10; // Moderate AI processing
+                return 15; // Increased from 10 for better coverage
             case 'key_points':
-                return 5; // More complex AI processing  
+                return 8;  // Increased from 5 for better coverage
             case 'structured':
-                return 3; // Most complex processing, smaller batches
+                return 5;  // Increased from 3 for better coverage
             default:
-                return 15;
+                return 20;
         }
     }
 
@@ -241,19 +245,24 @@ class Adverto_LLM_Generator {
     private function should_skip_due_to_time($processed, $total, $processing_type) {
         $start_time = $_SERVER['REQUEST_TIME_FLOAT'] ?? microtime(true);
         $elapsed = microtime(true) - $start_time;
-        
-        // Get time limits based on processing type
+
+        // Increased time limits for better coverage
         $time_limits = array(
-            'basic' => 90,      // 1.5 minutes
-            'ai_summaries' => 240,  // 4 minutes
-            'key_points' => 300,    // 5 minutes  
-            'structured' => 420     // 7 minutes
+            'basic' => 180,      // 3 minutes (increased from 1.5)
+            'ai_summaries' => 420,  // 7 minutes (increased from 4)
+            'key_points' => 480,    // 8 minutes (increased from 5)
+            'structured' => 600     // 10 minutes (increased from 7)
         );
-        
-        $time_limit = $time_limits[$processing_type] ?? 120;
-        
-        // Stop if we've used 80% of available time
-        return $elapsed > ($time_limit * 0.8);
+
+        $time_limit = $time_limits[$processing_type] ?? 300;
+
+        // Only skip if we're more than halfway through and time is running out
+        if ($elapsed > $time_limit && $processed > ($total * 0.3)) {
+            error_log("LLM Generator: Time limit reached ({$elapsed}s), skipping remaining content");
+            return true;
+        }
+
+        return false;
     }
 
     /**
@@ -435,13 +444,21 @@ class Adverto_LLM_Generator {
      * Uses structured JSON prompts like crawl4AI
      */
     private function extract_ai_title_and_summary($chunk, $url, $chunk_number) {
-        $system_prompt = "You are an AI that extracts titles and summaries from website content chunks. 
+        // Skip AI processing if chunk is too short
+        if (strlen($chunk) < 50) {
+            return array(
+                'title' => $this->generate_fallback_title($chunk, $url),
+                'summary' => $this->generate_fallback_summary($chunk)
+            );
+        }
+
+        $system_prompt = "You are an AI that extracts titles and summaries from website content chunks.
         Return a JSON object with 'title' and 'summary' keys.
         For the title: If this seems like the start of a document, extract its title. If it's a middle chunk, derive a descriptive title based on the main topic.
         For the summary: Create a concise 1-2 sentence summary of the main points in this chunk.
         Keep both title and summary concise but informative. Use British English spelling.";
 
-        $user_prompt = "URL: {$url}\nChunk #{$chunk_number}\n\nContent:\n" . substr($chunk, 0, 1000) . "...";
+        $user_prompt = "URL: {$url}\nChunk #{$chunk_number}\n\nContent:\n" . substr($chunk, 0, 1200) . "...";
 
         $prompt = "System: {$system_prompt}\n\nUser: {$user_prompt}\n\nRespond with valid JSON only:";
 
@@ -451,14 +468,18 @@ class Adverto_LLM_Generator {
             // Try to parse JSON response
             $decoded = json_decode($response, true);
             if (json_last_error() === JSON_ERROR_NONE && isset($decoded['title']) && isset($decoded['summary'])) {
-                return $decoded;
+                // Validate the response isn't empty
+                if (!empty(trim($decoded['title'])) && !empty(trim($decoded['summary']))) {
+                    return $decoded;
+                }
             }
         }
 
-        // Fallback if JSON parsing fails
+        // Enhanced fallback if JSON parsing fails or response is empty
+        error_log("LLM Generator: AI extraction failed for chunk {$chunk_number}, using enhanced fallback");
         return array(
-            'title' => $this->generate_fallback_title($chunk, $url),
-            'summary' => $this->generate_fallback_summary($chunk)
+            'title' => $this->generate_enhanced_fallback_title($chunk, $url, $chunk_number),
+            'summary' => $this->generate_enhanced_fallback_summary($chunk)
         );
     }
 
@@ -731,36 +752,161 @@ class Adverto_LLM_Generator {
     }
 
     /**
-     * Discover additional URLs through recursive link following
+     * Enhanced recursive link discovery with better coverage
      */
-    private function discover_recursive_links($initial_urls, $site_domain, $max_depth, $current_depth = 1) {
-        if ($current_depth >= $max_depth || empty($initial_urls)) {
-            return array();
-        }
-        
-        $new_urls = array();
-        $sample_urls = array_slice($initial_urls, 0, 10); // Limit to prevent excessive crawling
-        
-        foreach ($sample_urls as $url) {
-            $found_links = $this->extract_internal_links($url, $site_domain);
-            $new_urls = array_merge($new_urls, $found_links);
-            
-            // Limit recursive discovery
-            if (count($new_urls) > 100) {
+    private function discover_recursive_links_enhanced($initial_urls, $site_domain, $options) {
+        $all_urls = $initial_urls;
+        $max_depth = min($options['max_crawl_depth'] ?? 3, 4); // Cap at 4 for safety
+        $max_urls_per_level = 50; // Limit URLs discovered per level
+
+        for ($depth = 1; $depth < $max_depth; $depth++) {
+            error_log("LLM Generator: Starting recursive discovery at depth {$depth}");
+
+            $new_urls_this_level = array();
+            $sample_urls = array_slice($all_urls, 0, min(20, count($all_urls))); // Sample from discovered URLs
+
+            foreach ($sample_urls as $url) {
+                $found_links = $this->extract_internal_links($url, $site_domain);
+
+                // Filter out already discovered URLs
+                $new_links = array_diff($found_links, $all_urls);
+
+                // Limit per URL to prevent explosion
+                if (count($new_links) > 10) {
+                    $new_links = array_slice($new_links, 0, 10);
+                }
+
+                $new_urls_this_level = array_merge($new_urls_this_level, $new_links);
+
+                // Safety check - don't discover too many at once
+                if (count($new_urls_this_level) >= $max_urls_per_level) {
+                    break;
+                }
+            }
+
+            // Remove duplicates within this level
+            $new_urls_this_level = array_unique($new_urls_this_level);
+
+            error_log("LLM Generator: Found " . count($new_urls_this_level) . " new URLs at depth {$depth}");
+
+            if (empty($new_urls_this_level)) {
+                break; // No new URLs found, stop crawling
+            }
+
+            $all_urls = array_merge($all_urls, $new_urls_this_level);
+
+            // Safety limit total URLs
+            if (count($all_urls) >= ($options['max_pages_to_crawl'] ?? 100)) {
                 break;
             }
         }
-        
-        // Remove URLs we already have
-        $new_urls = array_diff($new_urls, $initial_urls);
-        
-        // Recursively find more URLs
-        if (!empty($new_urls) && $current_depth < $max_depth - 1) {
-            $deeper_urls = $this->discover_recursive_links($new_urls, $site_domain, $max_depth, $current_depth + 1);
-            $new_urls = array_merge($new_urls, $deeper_urls);
+
+        // Return only the newly discovered URLs
+        return array_diff($all_urls, $initial_urls);
+    }
+
+    /**
+     * Discover URLs from additional sources
+     */
+    private function discover_from_additional_sources($base_url, $site_domain) {
+        $additional_urls = array();
+
+        // Method 1: Check for common page patterns
+        $common_patterns = array(
+            '/about',
+            '/about-us',
+            '/contact',
+            '/contact-us',
+            '/services',
+            '/products',
+            '/blog',
+            '/news',
+            '/portfolio',
+            '/gallery',
+            '/team',
+            '/careers',
+            '/faq',
+            '/privacy',
+            '/terms',
+            '/sitemap'
+        );
+
+        foreach ($common_patterns as $pattern) {
+            $test_url = rtrim($base_url, '/') . $pattern;
+            $additional_urls[] = $test_url;
         }
-        
-        return array_unique($new_urls);
+
+        // Method 2: Check for category/tag archives if this is a blog
+        if (function_exists('get_categories')) {
+            $categories = get_categories(array('number' => 10));
+            foreach ($categories as $category) {
+                $additional_urls[] = get_category_link($category->term_id);
+            }
+        }
+
+        if (function_exists('get_tags')) {
+            $tags = get_tags(array('number' => 10));
+            foreach ($tags as $tag) {
+                $additional_urls[] = get_tag_link($tag->term_id);
+            }
+        }
+
+        // Method 3: Check for author archives
+        $authors = get_users(array('number' => 5, 'who' => 'authors'));
+        foreach ($authors as $author) {
+            $additional_urls[] = get_author_posts_url($author->ID);
+        }
+
+        // Method 4: Check for date archives
+        $additional_urls[] = get_month_link(date('Y'), date('m'));
+
+        // Method 5: Check for search page
+        $additional_urls[] = home_url('/?s=test');
+
+        // Filter and validate URLs
+        $valid_urls = array();
+        foreach ($additional_urls as $url) {
+            if ($this->is_valid_internal_url($url, $site_domain)) {
+                $valid_urls[] = $url;
+            }
+        }
+
+        return array_unique($valid_urls);
+    }
+
+    /**
+     * Validate if URL is a valid internal URL
+     */
+    private function is_valid_internal_url($url, $site_domain) {
+        if (!filter_var($url, FILTER_VALIDATE_URL)) {
+            return false;
+        }
+
+        $url_domain = parse_url($url, PHP_URL_HOST);
+        if ($url_domain !== $site_domain) {
+            return false;
+        }
+
+        // Skip common unwanted patterns
+        $path = parse_url($url, PHP_URL_PATH);
+        $skip_patterns = array(
+            '/wp-admin',
+            '/wp-content',
+            '/wp-includes',
+            '/feed',
+            '/rss',
+            '/xmlrpc',
+            '/.well-known',
+            '/wp-json'
+        );
+
+        foreach ($skip_patterns as $pattern) {
+            if (strpos($path, $pattern) !== false) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -1111,22 +1257,77 @@ class Adverto_LLM_Generator {
     }
 
     /**
-     * Generate fallback summary when AI extraction fails
+     * Generate enhanced fallback title with better heuristics
      */
-    private function generate_fallback_summary($chunk) {
-        // Take first 2-3 sentences
-        $sentences = preg_split('/[.!?]+/', $chunk, -1, PREG_SPLIT_NO_EMPTY);
-        $summary_sentences = array_slice($sentences, 0, 2);
-        
-        $summary = trim(implode('. ', $summary_sentences));
-        if (strlen($summary) < 50) {
-            // Add third sentence if summary is too short
-            if (isset($sentences[2])) {
-                $summary .= '. ' . trim($sentences[2]);
+    private function generate_enhanced_fallback_title($chunk, $url, $chunk_number) {
+        // Try to extract from headings first
+        if (preg_match('/#{1,6}\s+(.+)/', $chunk, $matches)) {
+            $title = trim($matches[1]);
+            if (strlen($title) > 5 && strlen($title) < 100) {
+                return $title;
             }
         }
-        
-        return $summary . '.';
+
+        // Try to extract from first sentence
+        $sentences = preg_split('/[.!?]+/', $chunk, -1, PREG_SPLIT_NO_EMPTY);
+        if (!empty($sentences)) {
+            $first_sentence = trim($sentences[0]);
+            if (strlen($first_sentence) > 10 && strlen($first_sentence) < 80) {
+                return ucfirst($first_sentence);
+            }
+        }
+
+        // Try to extract meaningful words from the chunk
+        $words = str_word_count($chunk, 1);
+        $meaningful_words = array();
+
+        foreach ($words as $word) {
+            $word = trim($word);
+            if (strlen($word) > 3 && !in_array(strtolower($word), $this->get_common_words())) {
+                $meaningful_words[] = ucfirst($word);
+                if (count($meaningful_words) >= 4) break;
+            }
+        }
+
+        if (!empty($meaningful_words)) {
+            return implode(' ', $meaningful_words);
+        }
+
+        // Final fallback using URL
+        return $this->generate_fallback_title($chunk, $url);
+    }
+
+    /**
+     * Generate enhanced fallback summary
+     */
+    private function generate_enhanced_fallback_summary($chunk) {
+        // Extract first 2-3 meaningful sentences
+        $sentences = preg_split('/[.!?]+/', $chunk, -1, PREG_SPLIT_NO_EMPTY);
+        $meaningful_sentences = array();
+
+        foreach ($sentences as $sentence) {
+            $sentence = trim($sentence);
+            if (strlen($sentence) > 10 && strlen($sentence) < 200) {
+                $meaningful_sentences[] = $sentence;
+                if (count($meaningful_sentences) >= 2) break;
+            }
+        }
+
+        if (!empty($meaningful_sentences)) {
+            return implode('. ', $meaningful_sentences) . '.';
+        }
+
+        // Fallback to original method
+        return $this->generate_fallback_summary($chunk);
+    }
+
+    /**
+     * Get common words to filter out
+     */
+    private function get_common_words() {
+        return array(
+            'the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'had', 'her', 'was', 'one', 'our', 'out', 'day', 'get', 'has', 'him', 'his', 'how', 'its', 'may', 'new', 'now', 'old', 'see', 'two', 'way', 'who', 'boy', 'did', 'has', 'let', 'put', 'say', 'she', 'too', 'use'
+        );
     }
 
     /**
@@ -1874,15 +2075,15 @@ class Adverto_LLM_Generator {
     }
 
     /**
-     * Handle public requests for LLM.txt file
+     * Handle public requests for LLMs.txt file
      */
     public function handle_public_llm_request() {
         global $wp;
         
-        // Check if this is a request for /llm.txt
+        // Check if this is a request for /llms.txt
         $request = $wp->request ?? '';
         
-        if ($request === 'llm.txt' || $request === 'llm.txt/') {
+        if ($request === 'llms.txt' || $request === 'llms.txt/') {
             $file_path = $this->get_file_path();
             
             if (file_exists($file_path)) {
@@ -1898,7 +2099,7 @@ class Adverto_LLM_Generator {
                 // File doesn't exist, send 404
                 status_header(404);
                 header('Content-Type: text/plain; charset=utf-8');
-                echo 'LLM.txt file not found. Please generate it first from the WordPress admin area.';
+                echo 'LLMs.txt file not found. Please generate it first from the WordPress admin area.';
                 exit;
             }
         }
